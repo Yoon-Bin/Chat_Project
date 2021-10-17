@@ -22,13 +22,13 @@ int main()
 {
 	try
 	{
-	#ifdef _WIN32
+#ifdef _WIN32
 		WSADATA wsaData;
 		if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 		{
 			throw("WSAStartup Fail");
 		}
-	#endif
+#endif
 		Iocp iocp(1);
 		SocketPool sockPool(50);
 

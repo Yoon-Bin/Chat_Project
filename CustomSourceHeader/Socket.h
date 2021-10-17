@@ -47,6 +47,7 @@ public:
 	bool OverlapDisconnectEx(Socket& sock);
 	int UpdateAcceptContext(Socket& listenSock);
 	void OverlapWSAsend(Socket sock);
+	void OverlapWSAsend(void* p);
 	void OverlapWSArecv();
 
 	void Close();

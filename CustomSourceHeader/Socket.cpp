@@ -272,6 +272,38 @@ void Socket::OverlapWSAsend(Socket sock)
 	}
 }
 
+void Socket::OverlapWSAsend(void* p)
+{
+	m_flag = 0;
+
+	char* buf = reinterpret_cast<char*>(p);
+
+	OverlappedStruct* ovlpStruct = new OverlappedStruct;
+
+	RtlZeroMemory(&ovlpStruct->m_wsaOverlapped, sizeof(ovlpStruct->m_wsaOverlapped));
+
+	ovlpStruct->m_ioType = IOType::WRITE;
+	ovlpStruct->m_wsaBuf.buf = buf;
+	ovlpStruct->m_wsaBuf.len = MAXBUFFERSIZE;
+
+	if (WSASend(
+		m_handle,
+		&ovlpStruct->m_wsaBuf,
+		1,
+		NULL,
+		m_flag,
+		&ovlpStruct->m_wsaOverlapped,
+		NULL
+	) != 0 && WSAGetLastError() != ERROR_IO_PENDING)
+	{
+		std::stringstream ss;
+
+		ss << "WSASend Failed : " << GetLastErrorAsString().c_str();
+
+		throw Exception(ss.str().c_str());
+	}
+}
+
 void Socket::OverlapWSArecv()
 {
 	m_flag = 0;
