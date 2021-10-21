@@ -133,6 +133,52 @@ bool Socket::OverlapAcceptEx(Socket* clientSock)
 	return ret;
 }
 
+int Socket::UpdateAcceptContext(Socket& listenSock)
+{
+	sockaddr_in* ignore1;
+	sockaddr_in* ignore3;
+	int ignore2, ignore4;
+
+	char ignore[3000] = { 0, };
+
+	char address[128] = { 0, };
+
+	//RtlZeroMemory(&ignore, sizeof(ignore));
+
+	GetAcceptExSockaddrs(ignore,
+		0,
+		sizeof(sockaddr_in) + 16,
+		sizeof(sockaddr_in) + 16,
+		(sockaddr**)&ignore1,
+		&ignore2,
+		(sockaddr**)&ignore3,
+		&ignore4
+	);
+
+	/*inet_ntop(AF_INET, &ignore3->sin_addr.S_un.S_addr, address, sizeof(address));
+
+	printf("%s\n", &address);*/
+
+	int ret = setsockopt(
+		m_handle,
+		SOL_SOCKET,
+		SO_UPDATE_ACCEPT_CONTEXT,
+		(char*)&listenSock.m_handle,
+		sizeof(listenSock.m_handle)
+	);
+
+	if (ret != 0)
+	{
+		std::stringstream ss;
+
+		ss << "UpdateAcceptContext Failed : " << GetLastErrorAsString();
+
+		throw Exception(ss.str().c_str());
+	}
+
+	return ret;
+}
+
 bool Socket::OverlapConnectEx(Socket& clientSock, EndPoint& endPoint)
 {
 	DWORD bytes;
@@ -195,44 +241,7 @@ bool Socket::OverlapDisconnectEx(Socket& sock)
 	return 0;
 }
 
-int Socket::UpdateAcceptContext(Socket& listenSock)
-{
-	sockaddr_in *ignore1;
-	sockaddr_in *ignore3;
-	int ignore2, ignore4;
 
-	char ignore[3000];
-
-	RtlZeroMemory(&ignore, sizeof(ignore));
-
-	GetAcceptExSockaddrs(ignore,
-		0,
-		sizeof(sockaddr_in)+16,
-		sizeof(sockaddr_in) + 16,
-		(sockaddr**)&ignore1,
-		&ignore2,
-		(sockaddr**)&ignore3,
-		&ignore4);
-
-	int ret = setsockopt(
-		m_handle,
-		SOL_SOCKET,
-		SO_UPDATE_ACCEPT_CONTEXT,
-		(char*)&listenSock.m_handle,
-		sizeof(listenSock.m_handle)
-	);
-
-	if (ret != 0)
-	{
-		std::stringstream ss;
-
-		ss << "UpdateAcceptContext Failed : " << GetLastErrorAsString();
-
-		throw Exception(ss.str().c_str());
-	}
-
-	return ret;
-}
 
 void Socket::Connect(const EndPoint& endPoint)
 {
