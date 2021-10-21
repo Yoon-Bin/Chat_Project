@@ -29,8 +29,12 @@ int main()
 			throw("WSAStartup Fail");
 		}
 #endif
+		char addressBuffer[256] = { 0, };
+
 		Iocp iocp(1);
-		SocketPool sockPool(50);
+		SocketPool sockPool(10);
+
+		std::unordered_set<Socket*> connectedSockets;
 
 		bool setTrue	= true;
 		bool setFalse	= false;
@@ -55,14 +59,16 @@ int main()
 		{
 			listenSock.m_overlappedStruct.m_ioType = IOType::ACCEPT;
 
-			printf("%p\n", iterator.second.get());
+			//printf("%p\n", iterator.second.get());
 
 			listenSock.OverlapAcceptEx(iterator.second.get());
 
-			printf("%d\n", iterator.second->GetHandle());
+			//printf("%d\n", iterator.second->GetHandle());
 
 			sockPool.Insert(iterator.second.get());
 		}
+
+		cout << sockPool.GetSize() << " Sockets OverlapAccepted" << endl;
 		
 		mutex m1;
 		
@@ -88,6 +94,8 @@ int main()
 					
 					iocp.Add(*usableSock, usableSock);
 
+					connectedSockets.insert(usableSock);
+
 					sockPool.m_sockPool[usableSock]->OverlapWSArecv();
 
 				}
@@ -100,19 +108,25 @@ int main()
 					{
 						printf("%d\n", iocpEvent.dwNumberOfBytesTransferred);
 						printf("%s\n", sock->m_receiveBuffer);
-					}
 
-					sock->OverlapWSAsend(*sock);
+					}
+					sock->OverlapWSArecv();
+
+					for (auto iterator : connectedSockets)
+					{
+						iterator->OverlapWSAsend(&(sock->m_receiveBuffer));
+					}
+					RtlZeroMemory(sock->m_receiveBuffer, sizeof(sock->m_receiveBuffer));
+
+					//sock->OverlapWSAsend(&(sock->m_receiveBuffer));
 				}
 				else if (ioType == IOType::WRITE)
 				{
+					
 					cout << "write" << endl;
 				}
-
 			}
 		}
-
-
 	}
 	catch (Exception& e)
 	{
