@@ -5,17 +5,12 @@
 
 using namespace std;
 
-enum class PacketType
+struct Test
 {
-	First,
-	Second
-};
-
-
-struct Packet
-{
-	int option;
-	int pp;
+	int length;
+	int id;
+	int a;
+	char message[];
 };
 
 int main()
@@ -29,7 +24,6 @@ int main()
 			throw("WSAStartup Fail");
 		}
 #endif
-		char addressBuffer[256] = { 0, };
 
 		Iocp iocp(1);
 		SocketPool sockPool(10);
@@ -106,8 +100,20 @@ int main()
 					cout << "read" << endl;
 					if (iocpEvent.dwNumberOfBytesTransferred > 0)
 					{
-						printf("%d\n", iocpEvent.dwNumberOfBytesTransferred);
-						printf("%s\n", sock->m_receiveBuffer);
+						if ((int)sock->m_receiveBuffer[1] == PacketType::CHAT)
+						{
+							printf("%d\n", iocpEvent.dwNumberOfBytesTransferred);
+							printf("%d\n", (int)sock->m_receiveBuffer[0]);
+							printf("%d\n", (int)sock->m_receiveBuffer[1]);
+							printf("%d\n", (int)sock->m_receiveBuffer[2]);
+							//std::cout << sock->m_receiveBuffer[3] << std::endl;
+							Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sock->m_receiveBuffer);
+							//Packet_Chat packet = (Packet_Chat)sock->m_
+							
+							printf("%s\n", packet->message);
+						}
+						
+						//printf("%s\n", packet);
 
 					}
 					sock->OverlapWSArecv();

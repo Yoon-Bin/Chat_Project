@@ -287,13 +287,15 @@ void Socket::OverlapWSAsend(void* p)
 
 	char* buf = reinterpret_cast<char*>(p);
 
+	Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(buf);
+
 	OverlappedStruct* ovlpStruct = new OverlappedStruct;
 
 	RtlZeroMemory(&ovlpStruct->m_wsaOverlapped, sizeof(ovlpStruct->m_wsaOverlapped));
 
 	ovlpStruct->m_ioType = IOType::WRITE;
 	ovlpStruct->m_wsaBuf.buf = buf;
-	ovlpStruct->m_wsaBuf.len = MAXBUFFERSIZE;
+	ovlpStruct->m_wsaBuf.len = (int)buf[0];
 
 	if (WSASend(
 		m_handle,

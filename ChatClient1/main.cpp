@@ -3,30 +3,29 @@
 
 using namespace std;
 
-enum class PacketType
-{
-	First,
-	Second
-};
-
-
-struct Packet
-{
-	int option;
-	int pp;
-};
-
 void Input(Socket* sock)
 {
 	while (true)
 	{
-		char message[1024] = { 0, };
+		string message;
 
-		scanf("%s", &message);
+		std::getline(cin, message);
 
+		if (message.length() != 0)
+		{
+			Packet_Chat* packet = (Packet_Chat*)malloc(sizeof(Packet_Chat) + sizeof(char) * message.length() + 1);
+			//RtlZeroMemory(packet, sizeof(Packet_Chat) + sizeof(char) * message.length() + 1);
+			packet->size = char(sizeof(Packet_Chat) + sizeof(char) * message.length() + 1);
+			packet->type = PacketType::CHAT;
+			packet->id = 13;
+			
+			strcpy(packet->message, message.c_str());
+		
+			sock->OverlapWSAsend(packet);
+
+			free(packet);
+		}
 		//sock.m_receiveBuffer
-
-		sock->OverlapWSAsend(&message);
 	}
 
 	
@@ -51,7 +50,14 @@ void Ovlp(Socket* sock, Iocp* iocp)
 
 			if (ioType == IOType::READ)
 			{
-				printf("%s\n", sock->m_receiveBuffer);
+				if ((int)sock->m_receiveBuffer[1] == PacketType::CHAT)
+				{
+					Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sock->m_receiveBuffer);
+
+					printf("%s\n", packet->message);
+				}
+
+				//printf("%s\n", sock->m_receiveBuffer);
 
 				RtlZeroMemory(sock->m_receiveBuffer, sizeof(sock->m_receiveBuffer));
 
