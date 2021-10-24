@@ -2,7 +2,7 @@
 
 #include "SocketUtil.h"
 
-#define MAXBUFFERSIZE 1024
+#define MAXBUFFERSIZE 256
 
 enum class SockType
 {
