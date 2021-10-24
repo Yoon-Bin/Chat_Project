@@ -2,13 +2,18 @@
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "mswsock.lib")
-
+#pragma comment(lib, "libmysql.lib")
 #define _CRT_SECURE_NO_WARNINGS
 //#define WIN32_LEAN_AND_MEAN   
 
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <MSWSock.h>
+
+//#include <boost/thread.hpp>
+//#include <boost/asio/thread_pool.hpp>
+
+#include <mysql.h>
 
 #include <thread>
 #include <mutex>
