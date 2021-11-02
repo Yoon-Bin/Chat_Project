@@ -1,7 +1,12 @@
 #pragma once
 
-#define SOCK_OPTNAME_DLL_PATH ("../CustomDll/SockOptNameStringTable.dll")
+#if _WIN64
+#define SOCK_OPTNAME_DLL_PATH ("../CustomDll/64bit/SockOptNameStringTable.dll")
+#else
+#define SOCK_OPTNAME_DLL_PATH ("../CustomDll/32bit/SockOptNameStringTable.dll")
+#endif
 
+//#define SOCK_OPTNAME_DLL_PATH ("../CustomDll/64bit/SockOptNameStringTable.dll")
 static std::string GetLastErrorAsString()
 {
     //Get the error message ID, if any.
@@ -27,7 +32,7 @@ static std::string GetLastErrorAsString()
     return message;
 }
 
-static std::string GetSockOptNameAsString(int optname)
+static std::string GetSockOptNameAsString(const int optname)
 {
     CHAR strText[25] = { 0, };
     HINSTANCE hdll = NULL;

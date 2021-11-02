@@ -12,9 +12,9 @@ Iocp::~Iocp()
 	CloseHandle(m_Iocp);
 }
 
-void Iocp::Add(const Socket& socket, LPCVOID userPtr) const
+void Iocp::Add(const Socket* sockPtr) const
 {
-	if (!CreateIoCompletionPort((HANDLE)socket.GetHandle(), m_Iocp, (ULONG_PTR)userPtr, m_threadCount))
+	if (!CreateIoCompletionPort((HANDLE)sockPtr->GetHandle(), m_Iocp, (ULONG_PTR)sockPtr, m_threadCount))
 	{
 		throw Exception("IOCP ADD FAILED");
 	}

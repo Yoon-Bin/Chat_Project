@@ -1,17 +1,11 @@
 #include "stdafx.h"
 #include "Iocp.h"
 #include "SocketPool.h"
-//extern SocketUtil sockUtil;
+
+#define SIZE 0
+#define TYPE 1
 
 using namespace std;
-
-struct Test
-{
-	int length;
-	int id;
-	int a;
-	char message[];
-};
 
 int main()
 {
@@ -24,11 +18,25 @@ int main()
 			throw("WSAStartup Fail");
 		}
 #endif
+		//DB Test Code
+		printf("%s\n\n", mysql_get_client_info());
+
+		std::map<PacketType, void(*)(Socket*)> callbackmap;
+
+		auto PacketProcess_Chat = [](Socket* sockPtr) {
+			
+			Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
+
+			printf("%d : %s\n", packet->id, packet->message);
+
+			sockPtr->OverlapWSAsend(packet);
+		};	
+		callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat });
+
+
 
 		Iocp iocp(1);
 		SocketPool sockPool(10);
-
-		std::unordered_set<Socket*> connectedSockets;
 
 		bool setTrue	= true;
 		bool setFalse	= false;
@@ -47,24 +55,21 @@ int main()
 
 		listenSock.Listen(1000);
 
-		iocp.Add(listenSock, nullptr);
+		iocp.Add(&listenSock);
 
-		for (auto iterator : sockPool.m_sockPool)
+		for (auto& iterator : sockPool.m_fullSockPtrMap)
 		{
-			listenSock.m_overlappedStruct.m_ioType = IOType::ACCEPT;
-
-			//printf("%p\n", iterator.second.get());
-
 			listenSock.OverlapAcceptEx(iterator.second.get());
 
-			//printf("%d\n", iterator.second->GetHandle());
-
-			sockPool.Insert(iterator.second.get());
+			sockPool.PushUsableSockPtr(iterator.second.get());
 		}
 
-		cout << sockPool.GetSize() << " Sockets OverlapAccepted" << endl;
+		if (sockPool.GetFullSockCount() == sockPool.GetUsableSockCount())
+		{
+			cout << sockPool.GetUsableSockCount() << " Sockets OverlapAccepted" << endl;
+		}
 		
-		mutex m1;
+		//mutex m1;
 		
 		while (true)
 		{
@@ -77,59 +82,39 @@ int main()
 				
 				IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
-				//lock_guard<mutex> lockguard(m1);
-				if (ioType == IOType::ACCEPT)
+				switch (ioType)
 				{
-					Socket* usableSock = sockPool.GetUsableSock();
-					
-					sockPool.Pop();
+				case IOType::ACCEPT:
+				{
+					Socket* sockPtr = sockPool.GetUsableSockPtr();
 
-					sockPool.m_sockPool[usableSock]->UpdateAcceptContext(listenSock);
-					
-					iocp.Add(*usableSock, usableSock);
+					sockPtr->UpdateAcceptContext(&listenSock);
 
-					connectedSockets.insert(usableSock);
+					iocp.Add(sockPtr);
 
-					sockPool.m_sockPool[usableSock]->OverlapWSArecv();
+					sockPtr->OverlapWSArecv();
 
+					sockPool.PopUsableSockPtr();
+
+					break;
 				}
-				else if (ioType == IOType::READ)
+				case IOType::READ:
 				{
-					shared_ptr<Socket> sock = sockPool.m_sockPool[(Socket*)iocpEvent.lpCompletionKey];
+					Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
 
-					cout << "read" << endl;
-					if (iocpEvent.dwNumberOfBytesTransferred > 0)
-					{
-						if ((int)sock->m_receiveBuffer[1] == PacketType::CHAT)
-						{
-							printf("%d\n", iocpEvent.dwNumberOfBytesTransferred);
-							printf("%d\n", (int)sock->m_receiveBuffer[0]);
-							printf("%d\n", (int)sock->m_receiveBuffer[1]);
-							printf("%d\n", (int)sock->m_receiveBuffer[2]);
-							//std::cout << sock->m_receiveBuffer[3] << std::endl;
-							Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sock->m_receiveBuffer);
-							//Packet_Chat packet = (Packet_Chat)sock->m_
-							
-							printf("%s\n", packet->message);
-						}
-						
-						//printf("%s\n", packet);
+					PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
 
-					}
-					sock->OverlapWSArecv();
+					callbackmap[packetType](sockPtr);
 
-					for (auto iterator : connectedSockets)
-					{
-						iterator->OverlapWSAsend(&(sock->m_receiveBuffer));
-					}
-					RtlZeroMemory(sock->m_receiveBuffer, sizeof(sock->m_receiveBuffer));
+					sockPtr->OverlapWSArecv();
 
-					//sock->OverlapWSAsend(&(sock->m_receiveBuffer));
+					break;
 				}
-				else if (ioType == IOType::WRITE)
+				case IOType::WRITE:
 				{
-					
-					cout << "write" << endl;
+					break;
+				}
+
 				}
 			}
 		}
@@ -138,6 +123,6 @@ int main()
 	{
 		printf("%s\n", e.what());
 	}
-
+	
 	return 0;
 }

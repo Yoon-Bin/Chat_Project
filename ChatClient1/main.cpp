@@ -13,23 +13,24 @@ void Input(Socket* sock)
 
 		if (message.length() != 0)
 		{
-			Packet_Chat* packet = (Packet_Chat*)malloc(sizeof(Packet_Chat) + sizeof(char) * message.length() + 1);
-			//RtlZeroMemory(packet, sizeof(Packet_Chat) + sizeof(char) * message.length() + 1);
-			packet->size = char(sizeof(Packet_Chat) + sizeof(char) * message.length() + 1);
-			packet->type = PacketType::CHAT;
-			packet->id = 13;
+			unsigned short packetSize = sizeof(Packet_Chat) + sizeof(char) * message.length() + 1;
+
+			Packet_Chat* packet = (Packet_Chat*)malloc(packetSize);
 			
-			strcpy(packet->message, message.c_str());
-		
-			sock->OverlapWSAsend(packet);
+			if (packet != NULL)
+			{
+				packet->size = static_cast<char>(packetSize);
+				packet->type = static_cast<char>(PacketType::CHAT);
+				packet->id = sock->m_id;
 
-			free(packet);
+				strcpy(packet->message, message.c_str());
+
+				sock->OverlapWSAsend(packet);
+
+				free(packet);
+			}
 		}
-		//sock.m_receiveBuffer
 	}
-
-	
-	//sock->OverlapWSAsend(*sock);
 }
 
 void Ovlp(Socket* sock, Iocp* iocp)
@@ -40,26 +41,29 @@ void Ovlp(Socket* sock, Iocp* iocp)
 
 		iocp->Wait(iocpEvents, 100);
 
-		IOType ioType;
-
 		for (int i = 0; i < iocpEvents.m_eventCount; ++i)
 		{
 			auto& iocpEvent = iocpEvents.m_events[i];
 
-			ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
+			IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
 			if (ioType == IOType::READ)
 			{
-				if ((int)sock->m_receiveBuffer[1] == PacketType::CHAT)
+				if ((PacketType)sock->m_overlappedStruct.m_buffer[1] == PacketType::CHAT)
 				{
-					Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sock->m_receiveBuffer);
+					Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sock->m_overlappedStruct.m_buffer);
 
 					printf("%s\n", packet->message);
+				}
+				else if ((PacketType)sock->m_overlappedStruct.m_buffer[1] == PacketType::LOGIN_REPLY)
+				{
+					Packet_Login_Reply* packet = reinterpret_cast<Packet_Login_Reply*>(sock->m_overlappedStruct.m_buffer);
+					sock->m_id = packet->id;
 				}
 
 				//printf("%s\n", sock->m_receiveBuffer);
 
-				RtlZeroMemory(sock->m_receiveBuffer, sizeof(sock->m_receiveBuffer));
+				RtlZeroMemory(sock->m_overlappedStruct.m_buffer, sizeof(sock->m_overlappedStruct.m_buffer));
 
 				sock->OverlapWSArecv();
 			}
@@ -72,6 +76,36 @@ void Ovlp(Socket* sock, Iocp* iocp)
 		//printf("d\n");
 	}
 }
+
+auto WriteUserInfo = [](string& info, const char* infoType)
+{
+	while (true)
+	{
+		printf("%s : ", infoType);
+		std::getline(cin, info);
+
+		if (info.length() > MAX_USERINFO_SIZE) {
+			printf("Too Long, Write Again\n\n");
+			continue;
+		}
+		else
+			break;
+	}
+};
+
+auto MakePacket_Login_Request = [](Socket* sockPtr, string username, string password) {
+
+	unsigned short packetSize = sizeof(Packet_Login_Request);
+
+	Packet_Login_Request packet;
+
+	packet.size = static_cast<char>(packetSize);
+	packet.type = static_cast<char>(PacketType::LOGIN_REQUEST);
+	strcpy(packet.username, username.c_str());
+	strcpy(packet.password, password.c_str());
+
+	sockPtr->OverlapWSAsend(&packet);
+};
 
 int main()
 {
@@ -96,18 +130,30 @@ int main()
 
 		Iocp iocp(1);
 
-		iocp.Add(client1, &client1);
+		iocp.Add(&client1);
 
-		cout << client1.OverlapConnectEx(client1, serverEndPoint) << endl;
-		cout << GetLastErrorAsString() << endl;
+		client1.OverlapConnectEx(&serverEndPoint);
+
 		client1.OverlapWSArecv();
 
 		std::thread ovlpThread(Ovlp, &client1, &iocp);
+
+		printf("Write Your ID & Password\n");
+		printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
+
+		string username;
+		string password;
+
+		WriteUserInfo(username, "Username");
+		WriteUserInfo(password, "Password");
+
+		MakePacket_Login_Request(&client1, username, password);
+
 		std::thread chatThread(Input, &client1);
 
 		//std::thread forThread(ForPrint);
 		ovlpThread.join();
-		chatThread.join();
+		//chatThread.join();
 		//forThread.join();
 
 		//sock.m_receiveBuffer

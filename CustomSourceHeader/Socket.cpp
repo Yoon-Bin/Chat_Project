@@ -14,15 +14,16 @@ Socket::Socket(SockType socketType)
 	}
 
 	RtlZeroMemory(&m_overlappedStruct.m_wsaOverlapped, sizeof(m_overlappedStruct.m_wsaOverlapped));
-	RtlZeroMemory(&m_receiveBuffer, sizeof(m_receiveBuffer));
+	//RtlZeroMemory(&m_receiveBuffer, sizeof(m_receiveBuffer));
 }
 
 Socket::~Socket()
 {
+	printf("%s\n", "¼ÒÄÏ ¼Ò¸êÀÚ");
 	closesocket(m_handle);
 }
 
-void Socket::SetSockOpt(int level, int optname, int optval)
+void Socket::SetSockOpt(const int level, const int optname, const int optval) const
 {
 	if (setsockopt(m_handle, level, optname, (char*)&optval, sizeof(optval)) < 0)
 	{
@@ -35,7 +36,7 @@ void Socket::SetSockOpt(int level, int optname, int optval)
 
 }
 
-void Socket::GetSockOpt(int level, int optname)
+void Socket::GetSockOpt(const int level, const int optname) const
 {
 	bool optval;
 	int optlen = sizeof(optval);
@@ -66,7 +67,7 @@ void Socket::Bind(const EndPoint& endPoint)
 	}
 }
 
-void Socket::Listen(int backLog)
+void Socket::Listen(const int backLog) const
 {
 	if (listen(m_handle, backLog) < 0)
 	{
@@ -83,10 +84,12 @@ void Socket::Listen(int backLog)
 }
 
 
-bool Socket::OverlapAcceptEx(Socket* clientSock)
+void Socket::OverlapAcceptEx(const Socket* const clientSock) const
 {
 	DWORD bytes;
 	UUID uuid = WSAID_ACCEPTEX;
+
+	m_overlappedStruct.m_ioType = IOType::ACCEPT;
 
 	if (AcceptEx == NULL)
 	{
@@ -110,7 +113,8 @@ bool Socket::OverlapAcceptEx(Socket* clientSock)
 
 	char TestBuffer[100];
 	DWORD ignored = 0;
-	bool ret = AcceptEx(
+
+	bool result = AcceptEx(
 		m_handle,
 		clientSock->GetHandle(),
 		&TestBuffer,
@@ -121,19 +125,18 @@ bool Socket::OverlapAcceptEx(Socket* clientSock)
 		&m_overlappedStruct.m_wsaOverlapped
 	);
 
-	if (!ret && WSAGetLastError() != ERROR_IO_PENDING)
+	if (!result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		std::stringstream ss;
 
-		ss << "OvelapAccept Error : " << GetLastErrorAsString().c_str();
+		ss << "OverlapAccept Error : " << GetLastErrorAsString().c_str();
 
 		throw Exception(ss.str().c_str());
 	}
 
-	return ret;
 }
 
-int Socket::UpdateAcceptContext(Socket& listenSock)
+void Socket::UpdateAcceptContext(const Socket* const listenSockPtr) const
 {
 	sockaddr_in* ignore1;
 	sockaddr_in* ignore3;
@@ -159,15 +162,15 @@ int Socket::UpdateAcceptContext(Socket& listenSock)
 
 	printf("%s\n", &address);*/
 
-	int ret = setsockopt(
+	int result = setsockopt(
 		m_handle,
 		SOL_SOCKET,
 		SO_UPDATE_ACCEPT_CONTEXT,
-		(char*)&listenSock.m_handle,
-		sizeof(listenSock.m_handle)
+		(char*)&listenSockPtr->m_handle,
+		sizeof(listenSockPtr->m_handle)
 	);
 
-	if (ret != 0)
+	if (result != 0)
 	{
 		std::stringstream ss;
 
@@ -176,10 +179,9 @@ int Socket::UpdateAcceptContext(Socket& listenSock)
 		throw Exception(ss.str().c_str());
 	}
 
-	return ret;
 }
 
-bool Socket::OverlapConnectEx(Socket& clientSock, EndPoint& endPoint)
+void Socket::OverlapConnectEx(const EndPoint* const endPoint) const
 {
 	DWORD bytes;
 	UUID uuid = WSAID_CONNECTEX;
@@ -187,7 +189,7 @@ bool Socket::OverlapConnectEx(Socket& clientSock, EndPoint& endPoint)
 	if (ConnectEx == NULL)
 	{
 		WSAIoctl(
-			clientSock.GetHandle(),
+			m_handle,
 			SIO_GET_EXTENSION_FUNCTION_POINTER,
 			&uuid,
 			sizeof(uuid),
@@ -199,16 +201,24 @@ bool Socket::OverlapConnectEx(Socket& clientSock, EndPoint& endPoint)
 		);
 	}
 
-	ConnectEx(
-		clientSock.GetHandle(),
-		(sockaddr*)&endPoint.m_sockAddrIn,
-		sizeof(endPoint.m_sockAddrIn),
+	bool result = ConnectEx(
+		m_handle,
+		(sockaddr*)&endPoint->m_sockAddrIn,
+		sizeof(endPoint->m_sockAddrIn),
 		NULL,
 		NULL,
 		NULL,
 		&m_overlappedStruct.m_wsaOverlapped
 	);
-	return 0;
+
+	if (result != 0 && WSAGetLastError() != ERROR_IO_PENDING)
+	{
+		std::stringstream ss;
+
+		ss << "OverlapConnect Error : " << GetLastErrorAsString().c_str();
+
+		throw Exception(ss.str().c_str());
+	}
 }
 
 bool Socket::OverlapDisconnectEx(Socket& sock)
@@ -231,7 +241,7 @@ bool Socket::OverlapDisconnectEx(Socket& sock)
 		);
 	}
 
-	DisconnectEx(
+	bool result = DisconnectEx(
 		sock.GetHandle(),
 		&sock.m_overlappedStruct.m_wsaOverlapped,
 		TF_REUSE_SOCKET,
@@ -240,8 +250,6 @@ bool Socket::OverlapDisconnectEx(Socket& sock)
 
 	return 0;
 }
-
-
 
 void Socket::Connect(const EndPoint& endPoint)
 {
@@ -255,39 +263,11 @@ void Socket::Connect(const EndPoint& endPoint)
 	}
 }
 
-void Socket::OverlapWSAsend(Socket sock)
-{
-	m_flag = 0;
-
-	m_overlappedStruct.m_ioType = IOType::WRITE;
-	m_overlappedStruct.m_wsaBuf.buf = m_receiveBuffer;
-	m_overlappedStruct.m_wsaBuf.len = MAXBUFFERSIZE;
-
-	if(WSASend(
-		sock.m_handle,
-		&m_overlappedStruct.m_wsaBuf,
-		1,
-		NULL,
-		m_flag,
-		&m_overlappedStruct.m_wsaOverlapped,
-		NULL
-	) != 0 && WSAGetLastError() != ERROR_IO_PENDING)
-	{
-		std::stringstream ss;
-
-		ss << "WSASend Failed : " << GetLastErrorAsString().c_str();
-
-		throw Exception(ss.str().c_str());
-	}
-}
-
-void Socket::OverlapWSAsend(void* p)
+void Socket::OverlapWSAsend(void* const p) const
 {
 	m_flag = 0;
 
 	char* buf = reinterpret_cast<char*>(p);
-
-	Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(buf);
 
 	OverlappedStruct* ovlpStruct = new OverlappedStruct;
 
@@ -295,9 +275,9 @@ void Socket::OverlapWSAsend(void* p)
 
 	ovlpStruct->m_ioType = IOType::WRITE;
 	ovlpStruct->m_wsaBuf.buf = buf;
-	ovlpStruct->m_wsaBuf.len = (int)buf[0];
+	ovlpStruct->m_wsaBuf.len = static_cast<char>(buf[0]);
 
-	if (WSASend(
+	int result = WSASend(
 		m_handle,
 		&ovlpStruct->m_wsaBuf,
 		1,
@@ -305,7 +285,9 @@ void Socket::OverlapWSAsend(void* p)
 		m_flag,
 		&ovlpStruct->m_wsaOverlapped,
 		NULL
-	) != 0 && WSAGetLastError() != ERROR_IO_PENDING)
+	);
+
+	if(result != 0 && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		std::stringstream ss;
 
@@ -320,10 +302,10 @@ void Socket::OverlapWSArecv()
 	m_flag = 0;
 
 	m_overlappedStruct.m_ioType = IOType::READ;
-	m_overlappedStruct.m_wsaBuf.buf = m_receiveBuffer;
+	m_overlappedStruct.m_wsaBuf.buf = &m_overlappedStruct.m_buffer[0];
 	m_overlappedStruct.m_wsaBuf.len = MAXBUFFERSIZE;
 
-	if (WSARecv(
+	int result = WSARecv(
 		m_handle,
 		&m_overlappedStruct.m_wsaBuf,
 		1,
@@ -331,7 +313,9 @@ void Socket::OverlapWSArecv()
 		&m_flag,
 		&m_overlappedStruct.m_wsaOverlapped,
 		NULL
-	)!=0&&WSAGetLastError() != ERROR_IO_PENDING)
+	);
+
+	if(result != 0 && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		std::stringstream ss;
 

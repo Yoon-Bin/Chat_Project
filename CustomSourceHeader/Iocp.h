@@ -18,7 +18,7 @@ public:
 	Iocp(UINT8 threadCount);
 	~Iocp();
 
-	void Add(const Socket& socket, LPCVOID userPtr) const;
+	void Add(const Socket* sockPtr) const;
 
 	void Wait(IocpEvents& output, UINT16 timeoutMs);
 

@@ -21,10 +21,10 @@ typedef struct
 {
 	WSAOVERLAPPED m_wsaOverlapped;
 	WSABUF m_wsaBuf;
-	unsigned char m_buffer[MAXBUFFERSIZE];
+	char m_buffer[MAXBUFFERSIZE];
 	IOType m_ioType;
 
-} OverlappedStruct, * OverlappedStructPtr;
+} OverlappedStruct, *OverlappedStructPtr;
 
 class Socket
 {
@@ -33,36 +33,35 @@ public:
 	Socket(SockType sockType);
 	~Socket();
 
-	void SetSockOpt(int level, int optname, int optval);
-	void GetSockOpt(int level, int optname);
+	void SetSockOpt(const int level, const int optname, const int optval) const;
+	void GetSockOpt(const int level, const int optname) const;
 	void Bind(const EndPoint& endPoint);
-	void Listen(int backLog);
+	void Listen(const int backLog) const;
 	void Connect(const EndPoint& endPoint);
 
 	void Send();
 	void Receive();
 
-	bool OverlapAcceptEx(Socket* clientSock);
-	bool OverlapConnectEx(Socket& clientSock, EndPoint& endPoint);
+	void OverlapAcceptEx(const Socket* const clientSock) const;
+	void UpdateAcceptContext(const Socket* const listenSockPtr) const;
+	void OverlapConnectEx(const EndPoint* const endPoint) const;
 	bool OverlapDisconnectEx(Socket& sock);
-	int UpdateAcceptContext(Socket& listenSock);
-	void OverlapWSAsend(Socket sock);
-	void OverlapWSAsend(void* p);
+	void OverlapWSAsend(void* const p) const;
 	void OverlapWSArecv();
 
 	void Close();
 
 	SOCKET GetHandle() const;
 
-	char m_receiveBuffer[MAXBUFFERSIZE];
+	unsigned short m_id;
 
-	DWORD m_flag = 0;
+	mutable DWORD m_flag = 0;
 
-	OverlappedStruct m_overlappedStruct;
+	mutable OverlappedStruct	m_overlappedStruct;
 
-	LPFN_ACCEPTEX		AcceptEx;
-	LPFN_CONNECTEX		ConnectEx;
-	LPFN_DISCONNECTEX	DisconnectEx;
+	mutable LPFN_ACCEPTEX		AcceptEx;
+	mutable LPFN_CONNECTEX		ConnectEx;
+	mutable LPFN_DISCONNECTEX	DisconnectEx;
 
 	SOCKET m_handle;
 private:

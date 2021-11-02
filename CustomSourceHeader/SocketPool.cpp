@@ -5,15 +5,10 @@ SocketPool::SocketPool(int sockCount)
 {
 	for (int i = 0; i < sockCount; i++)
 	{
-		std::shared_ptr<Socket> test = std::make_shared<Socket>(SockType::TCP);
+		std::unique_ptr<Socket> sock = std::make_unique<Socket>(SockType::TCP);
 
-		m_sockPool.insert(make_pair(test.get(), test));
+		m_fullSockPtrMap.insert(std::make_pair(sock.get(), std::move(sock)));
 	}
-}
-
-SocketPool::SocketPool()
-{
-
 }
 
 SocketPool::~SocketPool()
@@ -21,39 +16,29 @@ SocketPool::~SocketPool()
 
 }
 
-void SocketPool::Insert(Socket* key, std::shared_ptr<Socket> value)
+size_t SocketPool::GetFullSockCount() const
 {
-	m_sockPool.insert(make_pair(key, value));
+	return m_fullSockPtrMap.size();
 }
 
-void SocketPool::Insert(Socket* key)
+size_t SocketPool::GetUsableSockCount() const
 {
-	m_usableSockSet.push(key);
+	return m_fullSockPtrMap.size();
 }
 
-void SocketPool::Remove(Socket* key)
+void SocketPool::PushUsableSockPtr(Socket* sockPtr)
 {
-	m_sockPool.erase(key);
+	m_usableSockPtrStack.push(sockPtr);
 }
 
-void SocketPool::Pop()
+void SocketPool::PopUsableSockPtr()
 {
-	m_usableSockSet.pop();
+	m_usableSockPtrStack.pop();
 }
 
-size_t SocketPool::GetSize()
+Socket* SocketPool::GetUsableSockPtr()
 {
-	return m_sockPool.size();
-}
+	Socket* sockPtr = m_usableSockPtrStack.top();
 
-std::shared_ptr<Socket> SocketPool::Find(Socket* key)
-{
-	return m_sockPool.at(key);
-}
-
-Socket* SocketPool::GetUsableSock()
-{
-	Socket* sock = m_usableSockSet.top();
-
-	return sock;
+	return sockPtr;
 }
