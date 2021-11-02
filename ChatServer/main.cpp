@@ -33,6 +33,71 @@ int main()
 		};	
 		callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat });
 
+		auto PacketProcess_Login_Request = [](Socket* sockPtr) {
+			
+			Packet_Login_Request* packet = reinterpret_cast<Packet_Login_Request*>(sockPtr->m_overlappedStruct.m_buffer);
+
+			MYSQL conn;
+			MYSQL* connPtr = nullptr;
+			MYSQL_RES* result;
+			MYSQL_ROW row;
+			char query[128];
+			int stat;
+
+			RtlZeroMemory(query, 128);
+
+			mysql_init(&conn);
+
+			connPtr = mysql_real_connect(&conn, "127.0.0.1", "root", "tjqjvmfajyb12#", "sampledatabase", 3306, (char*)NULL, 0);
+
+			if (connPtr == NULL)
+			{
+				fprintf(stderr, "Mysql Connection Error : %s\n", mysql_error(&conn));
+				//return 1;
+			}
+			
+			std::strcat(query, "select password from user where username='");
+			std::strcat(query, packet->username);
+			std::strcat(query, "'");
+
+			stat = mysql_query(&conn, query);
+
+			if (stat != 0)
+			{
+				fprintf(stderr, "Mysql Err : %s \n", mysql_error(&conn));
+				//return 1;
+			}
+
+			result = mysql_store_result(connPtr);
+			
+			row = mysql_fetch_row(result);
+
+			if (row == nullptr)
+			{
+				std::cout << "There isn't Accout" << std::endl;
+			}
+			else
+			{
+				Packet_Login_Reply replyPacket;
+
+				replyPacket.size = static_cast<char>(sizeof(Packet_Login_Reply));
+				replyPacket.type = static_cast<char>(PacketType::LOGIN_REPLY);
+				replyPacket.id = static_cast<unsigned short>(sockPtr->m_handle);
+
+				if (strcmp(row[0], packet->password) == 0)
+				{
+					replyPacket.success = true;
+				}
+				else
+				{
+					replyPacket.success = false;
+				}
+				sockPtr->OverlapWSAsend(&replyPacket);
+			}
+
+			mysql_close(connPtr);
+		};
+		callbackmap.insert({ PacketType::LOGIN_REQUEST, PacketProcess_Login_Request });
 
 
 		Iocp iocp(1);
