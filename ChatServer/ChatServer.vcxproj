@@ -46,6 +46,7 @@
     <ClInclude Include="..\CustomSourceHeader\Exception.h" />
     <ClInclude Include="..\CustomSourceHeader\Iocp.h" />
     <ClInclude Include="..\CustomSourceHeader\Packet.h" />
+    <ClInclude Include="..\CustomSourceHeader\PacketProcess.h" />
     <ClInclude Include="..\CustomSourceHeader\Pool.h" />
     <ClInclude Include="..\CustomSourceHeader\Room.h" />
     <ClInclude Include="..\CustomSourceHeader\Socket.h" />
