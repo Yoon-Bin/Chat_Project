@@ -2,6 +2,10 @@
 
 #pragma pack(push,1)
 
+#define LOGIN_ERROR_NO_ERROR 0
+#define LOGIN_ERROR_WRONG_USERNAME 1
+#define LOGIN_ERROR_WRONG_PASSWORD 2
+
 #define MIN_USERINFO_SIZE 8
 #define MAX_USERINFO_SIZE 16
 #define MAX_USERNAME_SIZE 16
@@ -32,6 +36,7 @@ struct Packet_Login_Reply
 	char				type;
 	unsigned short		id;
 	bool				success;
+	char				error;
 };
 
 struct Packet_Logout

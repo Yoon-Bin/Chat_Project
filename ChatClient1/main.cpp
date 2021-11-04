@@ -1,7 +1,13 @@
 #include "stdafx.h"
 #include "CustomHeader.h"
+#include "PacketProcess.h"
+
+#define SIZE 0
+#define TYPE 1
 
 using namespace std;
+
+static std::map<PacketType, void(*)(Socket*)> callbackmap;
 
 void Input(Socket* sock)
 {
@@ -33,7 +39,7 @@ void Input(Socket* sock)
 	}
 }
 
-void Ovlp(Socket* sock, Iocp* iocp)
+void Ovlp(Socket* sockPtr, Iocp* iocp)
 {
 	while (true)
 	{
@@ -47,51 +53,38 @@ void Ovlp(Socket* sock, Iocp* iocp)
 
 			IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
-			if (ioType == IOType::READ)
+			if (iocpEvent.dwNumberOfBytesTransferred > 0)
 			{
-				if ((PacketType)sock->m_overlappedStruct.m_buffer[1] == PacketType::CHAT)
+				switch (ioType)
 				{
-					Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sock->m_overlappedStruct.m_buffer);
-
-					printf("%s\n", packet->message);
-				}
-				else if ((PacketType)sock->m_overlappedStruct.m_buffer[1] == PacketType::LOGIN_REPLY)
+				case IOType::READ:
 				{
-					Packet_Login_Reply* packet = reinterpret_cast<Packet_Login_Reply*>(sock->m_overlappedStruct.m_buffer);
-					sock->m_id = packet->id;
+					PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
+
+					callbackmap[packetType](sockPtr);
+
+					//printf("%s\n", sock->m_receiveBuffer);
+
+					//RtlZeroMemory(sock->m_overlappedStruct.m_buffer, sizeof(sock->m_overlappedStruct.m_buffer))
+
+					sockPtr->OverlapWSArecv();
+
+					break;
+				}
+				case IOType::WRITE:
+				{
+					delete iocpEvent.lpOverlapped;
+
+					break;
 				}
 
-				//printf("%s\n", sock->m_receiveBuffer);
-
-				RtlZeroMemory(sock->m_overlappedStruct.m_buffer, sizeof(sock->m_overlappedStruct.m_buffer));
-
-				sock->OverlapWSArecv();
-			}
-			else if (ioType == IOType::WRITE)
-			{
-				delete iocpEvent.lpOverlapped;
-				//delete[] ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_wsaBuf.buf;
+				}
 			}
 		}
-		//printf("d\n");
 	}
 }
 
-auto WriteUserInfo = [](string& info, const char* infoType)
-{
-	while (true)
-	{
-		printf("%s : ", infoType);
-		std::getline(cin, info);
 
-		if (info.length() > MAX_USERINFO_SIZE) {
-			printf("Too Long, Write Again\n\n");
-			continue;
-		}
-		else
-			break;
-	}
-};
 
 auto MakePacket_Login_Request = [](Socket* sockPtr, string username, string password) {
 
@@ -109,6 +102,10 @@ auto MakePacket_Login_Request = [](Socket* sockPtr, string username, string pass
 
 int main()
 {
+	callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat_Print });
+	callbackmap.insert({ PacketType::LOGIN_REPLY, PacketProcess_Login_Reply });
+	callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REPLY, PacketProcess_Create_Account_Reply });
+
 	try
 	{
 #ifdef _WIN32
@@ -149,7 +146,7 @@ int main()
 
 		MakePacket_Login_Request(&client1, username, password);
 
-		std::thread chatThread(Input, &client1);
+		//std::thread chatThread(Input, &client1);
 
 		//std::thread forThread(ForPrint);
 		ovlpThread.join();
