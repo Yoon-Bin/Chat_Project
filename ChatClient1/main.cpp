@@ -53,32 +53,64 @@ void Ovlp(Socket* sockPtr, Iocp* iocp)
 
 			IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
-			if (iocpEvent.dwNumberOfBytesTransferred > 0)
+			switch (ioType)
 			{
-				switch (ioType)
+			case IOType::READ:
+			{
+				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
 				{
-				case IOType::READ:
+					printf("READ 0 byte\n");
+				}
+				
+				Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
+
+				PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
+
+				callbackmap[packetType](sockPtr);
+
+				//printf("%s\n", sock->m_receiveBuffer);
+
+				//RtlZeroMemory(sock->m_overlappedStruct.m_buffer, sizeof(sock->m_overlappedStruct.m_buffer))
+
+				sockPtr->OverlapWSArecv();
+
+				break;
+			}
+			case IOType::WRITE:
+			{
+				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
 				{
-					PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
-
-					callbackmap[packetType](sockPtr);
-
-					//printf("%s\n", sock->m_receiveBuffer);
-
-					//RtlZeroMemory(sock->m_overlappedStruct.m_buffer, sizeof(sock->m_overlappedStruct.m_buffer))
-
-					sockPtr->OverlapWSArecv();
-
-					break;
+					printf("WRITE 0 byte\n");
 				}
-				case IOType::WRITE:
+
+				delete iocpEvent.lpOverlapped;
+
+				break;
+			}
+			case IOType::CONNECT:
+			{
+				Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
+
+				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
 				{
-					delete iocpEvent.lpOverlapped;
+					printf("CONNECT 0 byte\n");
+				}
+				sockPtr->OverlapWSArecv();
 
-					break;
+
+				break;
+
+			}
+			case IOType::DISCONNECT:
+			{
+				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
+				{
+					printf("DISCONNECT 0 byte\n");
 				}
 
-				}
+				break;
+
+			}
 			}
 		}
 	}

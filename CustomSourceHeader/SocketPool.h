@@ -9,16 +9,17 @@ public:
 	~SocketPool();
 
 	size_t		GetFullSockCount()		const;
-	size_t		GetUsableSockCount()	const;
+	/*size_t		GetUsableSockCount()	const;
 
 	void		PushUsableSockPtr(Socket* sockPtr);
 	void		PopUsableSockPtr();
-	Socket*		GetUsableSockPtr();
+	Socket*		GetUsableSockPtr();*/
 
 public:
-	std::stack<Socket*> m_usableSockPtrStack;
+	//필요 없을 수도?
+	//std::queue<Socket*> m_usableSockPtrStack;
 
-	std::unordered_map<Socket*, std::unique_ptr<Socket>> m_fullSockPtrMap;
+	std::vector<std::unique_ptr<Socket>> m_fullSockPtrVector;
 private:
 	
 };
