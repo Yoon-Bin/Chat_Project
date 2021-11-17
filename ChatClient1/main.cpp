@@ -1,6 +1,9 @@
 #include "stdafx.h"
 #include "CustomHeader.h"
 #include "PacketProcess.h"
+#include "boost/random/mersenne_twister.hpp"
+#include "boost/random/uniform_int_distribution.hpp"
+
 
 #define SIZE 0
 #define TYPE 1
@@ -39,7 +42,7 @@ void Input(Socket* sock)
 	}
 }
 
-void Ovlp(Socket* sockPtr, Iocp* iocp)
+void Ovlp(Iocp* iocp)
 {
 	while (true)
 	{
@@ -132,6 +135,37 @@ auto MakePacket_Login_Request = [](Socket* sockPtr, string username, string pass
 	sockPtr->OverlapWSAsend(&packet);
 };
 
+void Test(EndPoint* ePoint)
+{
+	for (int i = 0; i < 3; i++)
+	{
+		Socket sock(SockType::TCP);
+
+		sock.Bind(EndPoint::Any);
+
+		sock.OverlapConnectEx(ePoint);
+
+		Sleep(300);
+	}
+}
+
+//struct Client
+//{
+//	Socket sock;
+//
+//	char m_buffer[10] = "abcdefg";
+//
+//	std::thread* sockThread = new std::thread([&]() {
+//
+//		while (true)
+//		{
+//			sock.OverlapWSAsend(m_buffer);
+//		}
+//	});
+//};
+
+
+
 int main()
 {
 	callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat_Print });
@@ -153,35 +187,128 @@ int main()
 
 		EndPoint serverEndPoint("192.168.55.52", 4444);
 
-		Socket client1(SockType::TCP);
+		Iocp iocp(1);
+
+		/*Socket client1(SockType::TCP);
 
 		client1.Bind(EndPoint::Any);
 
-		Iocp iocp(1);
-
 		iocp.Add(&client1);
 
-		client1.OverlapConnectEx(&serverEndPoint);
+		Socket client2(SockType::TCP);
 
-		client1.OverlapWSArecv();
+		client2.Bind(EndPoint::Any);
 
-		std::thread ovlpThread(Ovlp, &client1, &iocp);
+		iocp.Add(&client2);*/
 
-		printf("Write Your ID & Password\n");
-		printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
+		/*std:vector<std::shared_ptr<thread>> threads;
 
-		string username;
-		string password;
+		std::shared_ptr<thread> ovlpThread1(new std::thread(Test, &serverEndPoint));
+		std::shared_ptr<thread> ovlpThread2(new std::thread(Test, &serverEndPoint));
+		std::shared_ptr<thread> ovlpThread3(new std::thread(Test, &serverEndPoint));*/
 
-		WriteUserInfo(username, "Username");
-		WriteUserInfo(password, "Password");
+		/*threads.push_back(ovlpThread1);
+		threads.push_back(ovlpThread1);
+		threads.push_back(ovlpThread1);*/
+		//std::shared_ptr<thread> test(new std::thread(Test, &iocp, &serverEndPoint));
 
-		MakePacket_Login_Request(&client1, username, password);
+	
+		//threads.push_back(test);
 
-		//std::thread chatThread(Input, &client1);
+		//client1.OverlapConnectEx(&serverEndPoint);
+		//client2.OverlapConnectEx(&serverEndPoint);
 
-		//std::thread forThread(ForPrint);
-		ovlpThread.join();
+		boost::random::mt19937 gen;
+		boost::random::uniform_int_distribution<> dist(0, 99);
+
+		Packet_Chat packet;
+		char buffer[10] = "abcdefg";
+
+		packet.size = sizeof(Packet_Chat) + sizeof(buffer);
+		packet.type = static_cast<char>(PacketType::CHAT);
+		strcpy(packet.message, buffer);
+
+		std::stringstream ss;
+
+		ss << 3<< static_cast<char>(PacketType::CHAT) << buffer;
+
+		std::cout << ss.str().c_str() << std::endl;
+
+		std::atomic<bool> sendGuard = true;
+
+		SocketPool pool1(100, true, SockType::TCP);
+		SocketPool pool2(100, true, SockType::TCP);
+
+		for (auto& sock : pool1.m_fullSockPtrVector)
+		{
+			sock->Connect(serverEndPoint);
+		}
+		for (auto& sock : pool2.m_fullSockPtrVector)
+		{
+			sock->Connect(serverEndPoint);
+		}
+
+		sendGuard.store(false, memory_order_release);
+
+		std::thread *test1 = new thread([&]() {
+
+			if (!sendGuard.load(memory_order_acquire))
+			{
+				while (true)
+				{
+					int randomNum = dist(gen);
+					
+					send(pool1.m_fullSockPtrVector[randomNum]->m_handle, ss.str().c_str(), 20, 0);
+					
+					Sleep(200);
+
+					//sockets[0]->OverlapWSAsend(&packet);
+				}
+			}
+		});
+		std::thread* test2 = new thread([&]() {
+
+			if (!sendGuard.load(memory_order_acquire))
+			{
+				while (true)
+				{
+					int randomNum = dist(gen);
+
+					send(pool2.m_fullSockPtrVector[randomNum]->m_handle, ss.str().c_str(), 20, 0);
+
+					Sleep(200);
+
+					//sockets[0]->OverlapWSAsend(&packet);
+				}
+			}
+			});
+		test1->join();
+		test2->join();
+
+		/*for (auto thread : threads)
+		{
+			thread->join();
+		}*/
+		//Sleep(2000);
+
+		//client1.OverlapDisconnectEx();
+
+		
+
+		//printf("Write Your ID & Password\n");
+		//printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
+
+		//string username;
+		//string password;
+
+		//WriteUserInfo(username, "Username");
+		//WriteUserInfo(password, "Password");
+
+		//MakePacket_Login_Request(&client1, username, password);
+
+		////std::thread chatThread(Input, &client1);
+
+		////std::thread forThread(ForPrint);
 		//chatThread.join();
 		//forThread.join();
 
@@ -227,14 +354,12 @@ int main()
 
 		//printf("%s\n", client1.m_overlappedStruct.m_buffer);
 
-		
+		//closesocket(client1.m_handle);
 	}
 	catch (Exception& e)
 	{
 		printf("%s\n", e.what());
 	}
-
-	//std::cout << Text("00000") << std::endl;
 
 	return 0;
 }
