@@ -27,6 +27,5 @@ void Iocp::Wait(IocpEvents& output, UINT16 timeoutMs)
 	{
 		output.m_eventCount = 0;
 	}
-	
 }
 

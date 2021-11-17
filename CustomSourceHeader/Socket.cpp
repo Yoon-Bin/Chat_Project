@@ -183,7 +183,6 @@ void Socket::OverlapAcceptEx(const Socket* const clientSock) const
 
 		throw Exception(ss.str().c_str());
 	}
-
 }
 
 void Socket::UpdateAcceptContext(Socket* listenSockPtr) const
@@ -393,7 +392,6 @@ void Socket::OverlapWSArecv()
 
 		throw Exception(ss.str().c_str());
 	}
-	
 }
 
 void Socket::Close()

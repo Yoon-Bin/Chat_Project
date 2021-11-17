@@ -5,7 +5,7 @@
 class SocketPool 
 {
 public:
-	SocketPool(int sockCount);
+	SocketPool(int sockCount, bool isBinded, SockType protocol);
 	~SocketPool();
 
 	size_t		GetFullSockCount()		const;

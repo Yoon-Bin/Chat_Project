@@ -2,18 +2,20 @@
 
 #include "Socket.h"
 
+#define MAXEVENTCOUNT 1000
+
 class IocpEvents
 {
 public:
 	// GetQueuedCompletionStatus으로 꺼내온 이벤트들
-	OVERLAPPED_ENTRY m_events[1000];
+	OVERLAPPED_ENTRY m_events[MAXEVENTCOUNT];
 	UINT16 m_eventCount = 0;
 };
 
 class Iocp
 {
 public:
-	static const UINT16 MaxEventCount = 1000;
+	static const UINT16 MaxEventCount = MAXEVENTCOUNT;
 
 	Iocp(UINT8 threadCount);
 	~Iocp();
