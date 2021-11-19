@@ -8,92 +8,7 @@
 #define SIZE 0
 #define TYPE 1
 
-//using namespace std;
-
 static std::map<PacketType, void(*)(Socket*)> callbackmap;
-
-void Ovlp(Iocp& iocpPtr, Socket* listenSockPtr, SocketPool* sockPoolPtr)
-{
-	while (true)
-	{
-		IocpEvents iocpEvents;
-		iocpPtr.Wait(iocpEvents, 100);
-
-		for (int i = 0; i < iocpEvents.m_eventCount; ++i)
-		{
-			auto& iocpEvent = iocpEvents.m_events[i];
-
-			IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
-
-			/*std::cout << (int)iocpEvent.dwNumberOfBytesTransferred << std::endl;
-
-			if (iocpEvent.dwNumberOfBytesTransferred <= 0)
-			{
-				printf("0 byte\n");
-			}*/
-
-			switch (ioType)
-			{
-			case IOType::ACCEPT:
-			{
-				unsigned short sockID = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_id;
-
-				Socket* sockPtr = sockPoolPtr->m_fullSockPtrVector[sockID].get();
-
-				sockPtr->UpdateAcceptContext(listenSockPtr);
-
-				sockPtr->OverlapWSArecv();
-
-				sockPtr->m_isOverlapped = true;
-
-				std::cout << sockPtr->m_handle << std::endl;
-
-
-				break;
-			}
-			case IOType::READ:
-			{
-				Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
-
-				if (iocpEvent.dwNumberOfBytesTransferred > 0)
-				{
-					sockPtr->m_isOverlapped = false;
-
-					PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
-
-					callbackmap[packetType](sockPtr);
-
-					sockPtr->OverlapWSArecv();
-
-					sockPtr->m_isOverlapped = true;
-				}
-				else
-				{
-					sockPtr->OverlapDisconnectEx();
-				}
-
-				break;
-			}
-			case IOType::WRITE:
-			{
-				delete iocpEvent.lpOverlapped;
-
-				break;
-			}
-			case IOType::DISCONNECT:
-			{
-				Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
-
-				RtlZeroMemory(&sockPtr->m_overlappedStruct.m_wsaOverlapped, sizeof(sockPtr->m_overlappedStruct.m_wsaOverlapped));
-
-				listenSockPtr->OverlapAcceptEx(sockPtr);
-
-				printf("%d Disconnected\n", (int)sockPtr->m_handle);
-			}
-			}
-		}
-	}
-}
 
 int main()
 {
@@ -106,15 +21,11 @@ int main()
 			throw("WSAStartup Fail");
 		}
 #endif
-		//DB Test Code
 		printf("%s\n\n", mysql_get_client_info());
 
 		callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat_Resend });
 		callbackmap.insert({ PacketType::LOGIN_REQUEST, PacketProcess_Login_Request });
 		callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REQUEST, PacketProcess_Create_Account_Request });
-
-		/*Iocp iocp(0);
-		SocketPool sockPool(100);*/
 
 		bool setTrue	= true;
 		bool setFalse	= false;
@@ -151,186 +62,98 @@ int main()
 			listenSock.OverlapAcceptEx(iterator.get());
 		}
 
-		//sockPool.m_fullSockPtrMap[1].get()->OverlapAcceptEx(listenSock);
-		//sockPool.m_fullSockPtrMap[2].get()->OverlapAcceptEx(listenSock);
-		//sockPool.m_fullSockPtrMap[0].get()->OverlapAcceptEx(listenSock);
-
 		std::cout << sockPool.GetFullSockCount() << " Sockets OverlapAccepted" << std::endl;
 
-		//mutex m1;
-		
 		std::vector<std::shared_ptr<std::thread>> threads;
 
-		std::shared_ptr<std::thread> ovlpThread1 = std::make_shared<std::thread>([&]() {
+		for (int i = 0; i < 4; i++)
+		{
+			std::shared_ptr<std::thread> ovlpThread(new std::thread([&]() {
 
-			while (true)
-			{
-				IocpEvents iocpEvents;
-				iocp.Wait(iocpEvents, 100);
-
-				for (int i = 0; i < iocpEvents.m_eventCount; ++i)
+				while (true)
 				{
-					auto& iocpEvent = iocpEvents.m_events[i];
+					IocpEvents iocpEvents;
+					iocp.Wait(iocpEvents, 0);
 
-					IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
-
-					/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
+					for (int i = 0; i < iocpEvents.m_eventCount; ++i)
 					{
-						printf("0 byte\n");
-					}*/
+						auto& iocpEvent = iocpEvents.m_events[i];
 
-					switch (ioType)
-					{
-					case IOType::ACCEPT:
-					{
-						unsigned short sockID = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_id;
+						IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
-						Socket* sockPtr = sockPool.m_fullSockPtrVector[sockID].get();
-
-						sockPtr->UpdateAcceptContext(&listenSock);
-
-						sockPtr->OverlapWSArecv();
-
-						sockPtr->m_isOverlapped = true;
-
-						std::cout << sockPtr->m_handle << std::endl;
-						break;
-					}
-					case IOType::READ:
-					{
-						Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
-
-						if (iocpEvent.dwNumberOfBytesTransferred > 0)
+						/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
 						{
-							sockPtr->m_isOverlapped = false;
+							printf("0 byte\n");
+						}*/
 
-							PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
+						switch (ioType)
+						{
+						case IOType::ACCEPT:
+						{
+							unsigned short sockID = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_id;
 
-							callbackmap[packetType](sockPtr);
+							Socket* sockPtr = sockPool.m_fullSockPtrVector[sockID].get();
+
+							sockPtr->UpdateAcceptContext(&listenSock);
 
 							sockPtr->OverlapWSArecv();
 
 							sockPtr->m_isOverlapped = true;
+
+							break;
 						}
-						else
+						case IOType::READ:
 						{
-							sockPtr->OverlapDisconnectEx();
+							Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
+
+							if (iocpEvent.dwNumberOfBytesTransferred > 0)
+							{
+								sockPtr->m_isOverlapped = false;
+
+								PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
+
+								callbackmap[packetType](sockPtr);
+
+								sockPtr->OverlapWSArecv();
+
+								sockPtr->m_isOverlapped = true;
+							}
+							else
+							{
+								sockPtr->OverlapDisconnectEx();
+							}
+
+							break;
 						}
+						case IOType::WRITE:
+						{
+							delete iocpEvent.lpOverlapped;
 
-						break;
-					}
-					case IOType::WRITE:
-					{
-						delete iocpEvent.lpOverlapped;
+							break;
+						}
+						case IOType::DISCONNECT:
+						{
+							Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
 
-						break;
-					}
-					case IOType::DISCONNECT:
-					{
-						Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
+							RtlZeroMemory(&sockPtr->m_overlappedStruct.m_wsaOverlapped, sizeof(sockPtr->m_overlappedStruct.m_wsaOverlapped));
 
-						RtlZeroMemory(&sockPtr->m_overlappedStruct.m_wsaOverlapped, sizeof(sockPtr->m_overlappedStruct.m_wsaOverlapped));
+							listenSock.OverlapAcceptEx(sockPtr);
 
-						listenSock.OverlapAcceptEx(sockPtr);
-
-						printf("%d Disconnected\n", (int)sockPtr->m_handle);
-					}
+							printf("%d Disconnected\n", (int)sockPtr->m_handle);
+						}
+						}
 					}
 				}
-			}
-			
-			
-		});
+				}));
 
-		std::shared_ptr<std::thread> ovlpThread2 = ovlpThread1;
-
-		threads.push_back(ovlpThread1);
-		//threads.push_back(ovlpThread2);
+			threads.push_back(ovlpThread);
+		}
 
 		for (auto thread : threads)
 		{
 			thread->join();
 		}
 
-		/*while (true)
-		{
-			IocpEvents iocpEvents;
-			iocp.Wait(iocpEvents, 1000);
-
-			for (int i = 0; i < iocpEvents.m_eventCount; ++i)
-			{
-				auto& iocpEvent = iocpEvents.m_events[i];
-				
-				IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
-
-				std::cout << (int)iocpEvent.dwNumberOfBytesTransferred << std::endl;
-
-				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
-				{
-					printf("0 byte\n");
-				}
-
-				switch (ioType)
-				{
-				case IOType::ACCEPT:
-				{
-					unsigned short sockID = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_id;
-
-					Socket* sockPtr = sockPool.m_fullSockPtrVector[sockID].get();
-
-					sockPtr->UpdateAcceptContext(&listenSock);
-
-					sockPtr->OverlapWSArecv();
-
-					sockPtr->m_isOverlapped = true;
-
-					std::cout << sockPtr->m_handle << std::endl;
-
-
-					break;
-				}
-				case IOType::READ:
-				{
-					Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
-
-					if (iocpEvent.dwNumberOfBytesTransferred > 0)
-					{
-						sockPtr->m_isOverlapped = false;
-
-						PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
-
-						callbackmap[packetType](sockPtr);
-
-						sockPtr->OverlapWSArecv();
-
-						sockPtr->m_isOverlapped = true;
-					}
-					else
-					{
-						sockPtr->OverlapDisconnectEx();
-					}
-
-					break;
-				}
-				case IOType::WRITE:
-				{
-					delete iocpEvent.lpOverlapped;
-
-					break;
-				}
-				case IOType::DISCONNECT:
-				{
-					Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
-
-					RtlZeroMemory(&sockPtr->m_overlappedStruct.m_wsaOverlapped, sizeof(sockPtr->m_overlappedStruct.m_wsaOverlapped));
-
-					listenSock.OverlapAcceptEx(sockPtr);
-
-					printf("%d Disconnected\n", (int)sockPtr->m_handle);
-				}
-				}
-			}
-		}*/
 	}
 	catch (Exception& e)
 	{

@@ -32,7 +32,6 @@
     <ClCompile Include="..\CustomSourceHeader\Exception.cpp" />
     <ClCompile Include="..\CustomSourceHeader\Iocp.cpp" />
     <ClCompile Include="..\CustomSourceHeader\Pool.cpp" />
-    <ClCompile Include="..\CustomSourceHeader\Room.cpp" />
     <ClCompile Include="..\CustomSourceHeader\Socket.cpp" />
     <ClCompile Include="..\CustomSourceHeader\SocketPool.cpp" />
     <ClCompile Include="..\CustomSourceHeader\SocketUtil.cpp" />
@@ -48,7 +47,6 @@
     <ClInclude Include="..\CustomSourceHeader\Packet.h" />
     <ClInclude Include="..\CustomSourceHeader\PacketProcess.h" />
     <ClInclude Include="..\CustomSourceHeader\Pool.h" />
-    <ClInclude Include="..\CustomSourceHeader\Room.h" />
     <ClInclude Include="..\CustomSourceHeader\Socket.h" />
     <ClInclude Include="..\CustomSourceHeader\SocketPool.h" />
     <ClInclude Include="..\CustomSourceHeader\SocketUtil.h" />

@@ -108,7 +108,7 @@ auto PacketProcess_Chat_Resend = [](Socket* sockPtr) {
 	Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
 
 	//printf("%d : %s\n", packet->id, packet->message);
-	printf("%d : %s\n", (int)sockPtr->m_handle, packet->message);
+	//printf("%d : %s\n", (int)sockPtr->m_handle, packet->message);
 
 	sockPtr->OverlapWSAsend(packet);
 };
