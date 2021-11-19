@@ -25,7 +25,7 @@ void Input(Socket* sock)
 			unsigned short packetSize = sizeof(Packet_Chat) + sizeof(char) * message.length() + 1;
 
 			Packet_Chat* packet = (Packet_Chat*)malloc(packetSize);
-			
+
 			if (packet != NULL)
 			{
 				packet->size = static_cast<char>(packetSize);
@@ -42,85 +42,6 @@ void Input(Socket* sock)
 	}
 }
 
-void Ovlp(Iocp* iocp)
-{
-	while (true)
-	{
-		IocpEvents iocpEvents;
-
-		iocp->Wait(iocpEvents, 100);
-
-		for (int i = 0; i < iocpEvents.m_eventCount; ++i)
-		{
-			auto& iocpEvent = iocpEvents.m_events[i];
-
-			IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
-
-			switch (ioType)
-			{
-			case IOType::READ:
-			{
-				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
-				{
-					printf("READ 0 byte\n");
-				}
-				
-				Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
-
-				PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
-
-				callbackmap[packetType](sockPtr);
-
-				//printf("%s\n", sock->m_receiveBuffer);
-
-				//RtlZeroMemory(sock->m_overlappedStruct.m_buffer, sizeof(sock->m_overlappedStruct.m_buffer))
-
-				sockPtr->OverlapWSArecv();
-
-				break;
-			}
-			case IOType::WRITE:
-			{
-				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
-				{
-					printf("WRITE 0 byte\n");
-				}
-
-				delete iocpEvent.lpOverlapped;
-
-				break;
-			}
-			case IOType::CONNECT:
-			{
-				Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
-
-				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
-				{
-					printf("CONNECT 0 byte\n");
-				}
-				sockPtr->OverlapWSArecv();
-
-
-				break;
-
-			}
-			case IOType::DISCONNECT:
-			{
-				if (iocpEvent.dwNumberOfBytesTransferred <= 0)
-				{
-					printf("DISCONNECT 0 byte\n");
-				}
-
-				break;
-
-			}
-			}
-		}
-	}
-}
-
-
-
 auto MakePacket_Login_Request = [](Socket* sockPtr, string username, string password) {
 
 	unsigned short packetSize = sizeof(Packet_Login_Request);
@@ -134,20 +55,6 @@ auto MakePacket_Login_Request = [](Socket* sockPtr, string username, string pass
 
 	sockPtr->OverlapWSAsend(&packet);
 };
-
-void Test(EndPoint* ePoint)
-{
-	for (int i = 0; i < 3; i++)
-	{
-		Socket sock(SockType::TCP);
-
-		sock.Bind(EndPoint::Any);
-
-		sock.OverlapConnectEx(ePoint);
-
-		Sleep(300);
-	}
-}
 
 //struct Client
 //{
@@ -164,8 +71,6 @@ void Test(EndPoint* ePoint)
 //	});
 //};
 
-
-
 int main()
 {
 	callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat_Print });
@@ -181,43 +86,104 @@ int main()
 			throw("WSAStartup Fail");
 		}
 #endif
-		/*char message[1024] = { 0, };
-
-		scanf("%s", &message);*/
-
 		EndPoint serverEndPoint("192.168.55.52", 4444);
 
 		Iocp iocp(1);
 
-		/*Socket client1(SockType::TCP);
+		Socket client1(SockType::TCP);
 
 		client1.Bind(EndPoint::Any);
 
 		iocp.Add(&client1);
 
-		Socket client2(SockType::TCP);
+		client1.OverlapConnectEx(&serverEndPoint);
 
-		client2.Bind(EndPoint::Any);
+		printf("Write Your ID & Password\n");
+		printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
 
-		iocp.Add(&client2);*/
+		string username;
+		string password;
 
-		/*std:vector<std::shared_ptr<thread>> threads;
+		WriteUserInfo(username, "Username");
+		WriteUserInfo(password, "Password");
 
-		std::shared_ptr<thread> ovlpThread1(new std::thread(Test, &serverEndPoint));
-		std::shared_ptr<thread> ovlpThread2(new std::thread(Test, &serverEndPoint));
-		std::shared_ptr<thread> ovlpThread3(new std::thread(Test, &serverEndPoint));*/
+		MakePacket_Login_Request(&client1, username, password);
 
-		/*threads.push_back(ovlpThread1);
-		threads.push_back(ovlpThread1);
-		threads.push_back(ovlpThread1);*/
-		//std::shared_ptr<thread> test(new std::thread(Test, &iocp, &serverEndPoint));
+		std::thread chatThread(Input, &client1);
 
+		//std::thread forThread(ForPrint);
+		chatThread.join();
+		//forThread.join();
+
+		//sock.m_receiveBuffer
+
+		while (true)
+		{
+			IocpEvents iocpEvents;
+			iocp.Wait(iocpEvents, 0);
+
+			for (int i = 0; i < iocpEvents.m_eventCount; ++i)
+			{
+				auto& iocpEvent = iocpEvents.m_events[i];
+
+				IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
+
+				/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
+				{
+					printf("0 byte\n");
+				}*/
+
+				switch (ioType)
+				{
+				case IOType::CONNECT:
+				{
+					client1.OverlapWSArecv();
+
+					break;
+				}
+				case IOType::READ:
+				{
+					if (iocpEvent.dwNumberOfBytesTransferred > 0)
+					{
+						client1.m_isOverlapped = false;
+
+						PacketType packetType = static_cast<PacketType>(client1.m_overlappedStruct.m_buffer[TYPE]);
+
+						callbackmap[packetType](&client1);
+
+						client1.OverlapWSArecv();
+
+						client1.m_isOverlapped = true;
+					}
+
+					break;
+				}
+				case IOType::WRITE:
+				{
+					delete iocpEvent.lpOverlapped;
+
+					break;
+				}
+				}
+			}
+		}
 	
-		//threads.push_back(test);
 
-		//client1.OverlapConnectEx(&serverEndPoint);
-		//client2.OverlapConnectEx(&serverEndPoint);
+		//client1.OverlapWSAsend( &message);
+		//send(client1.GetHandle(), (const char*)&message, sizeof(message), 0);
 
+
+		//recv(client1.GetHandle(), (char*)&client1.m_overlappedStruct.m_buffer, sizeof(client1.m_overlappedStruct.m_buffer), 0);
+
+		//printf("%s\n", client1.m_overlappedStruct.m_buffer);
+
+		//closesocket(client1.m_handle);
+
+
+		///////////////////
+		//Multi Threading//
+		///////////////////
+		/*
 		boost::random::mt19937 gen;
 		boost::random::uniform_int_distribution<> dist(0, 99);
 
@@ -230,7 +196,7 @@ int main()
 
 		std::stringstream ss;
 
-		ss << 3<< static_cast<char>(PacketType::CHAT) << buffer;
+		ss << 3 << static_cast<char>(PacketType::CHAT) << buffer;
 
 		std::cout << ss.str().c_str() << std::endl;
 
@@ -238,6 +204,9 @@ int main()
 
 		SocketPool pool1(100, true, SockType::TCP);
 		SocketPool pool2(100, true, SockType::TCP);
+		SocketPool pool3(100, true, SockType::TCP);
+		SocketPool pool4(100, true, SockType::TCP);
+		SocketPool pool5(100, true, SockType::TCP);
 
 		for (auto& sock : pool1.m_fullSockPtrVector)
 		{
@@ -247,114 +216,104 @@ int main()
 		{
 			sock->Connect(serverEndPoint);
 		}
-
+		for (auto& sock : pool3.m_fullSockPtrVector)
+		{
+			sock->Connect(serverEndPoint);
+		}
+		for (auto& sock : pool4.m_fullSockPtrVector)
+		{
+			sock->Connect(serverEndPoint);
+		}
+		for (auto& sock : pool5.m_fullSockPtrVector)
+		{
+			sock->Connect(serverEndPoint);
+		}
+		printf("aaaaaaaaaaaaaaaaaa\n");
 		sendGuard.store(false, memory_order_release);
 
-		std::thread *test1 = new thread([&]() {
+		std::thread* test1 = new thread([&]() {
 
 			if (!sendGuard.load(memory_order_acquire))
 			{
 				while (true)
 				{
-					int randomNum = dist(gen);
-					
-					send(pool1.m_fullSockPtrVector[randomNum]->m_handle, ss.str().c_str(), 20, 0);
-					
-					Sleep(200);
+					int randomnum = dist(gen);
 
-					//sockets[0]->OverlapWSAsend(&packet);
+					send(pool1.m_fullSockPtrVector[randomnum]->m_handle, ss.str().c_str(), 20, 0);
+
+					Sleep(10);
 				}
 			}
-		});
+			});
 		std::thread* test2 = new thread([&]() {
 
 			if (!sendGuard.load(memory_order_acquire))
 			{
 				while (true)
 				{
-					int randomNum = dist(gen);
+					int randomnum = dist(gen);
 
-					send(pool2.m_fullSockPtrVector[randomNum]->m_handle, ss.str().c_str(), 20, 0);
+					send(pool2.m_fullSockPtrVector[randomnum]->m_handle, ss.str().c_str(), 20, 0);
 
-					Sleep(200);
-
-					//sockets[0]->OverlapWSAsend(&packet);
+					Sleep(10);
 				}
 			}
 			});
-		test1->join();
-		test2->join();
+		std::thread* test3 = new thread([&]() {
 
-		/*for (auto thread : threads)
+			if (!sendGuard.load(memory_order_acquire))
+			{
+				while (true)
+				{
+					int randomnum = dist(gen);
+
+					send(pool3.m_fullSockPtrVector[randomnum]->m_handle, ss.str().c_str(), 20, 0);
+
+					Sleep(10);
+				}
+			}
+			});
+		std::thread* test4 = new thread([&]() {
+
+			if (!sendGuard.load(memory_order_acquire))
+			{
+				while (true)
+				{
+					int randomnum = dist(gen);
+
+					send(pool4.m_fullSockPtrVector[randomnum]->m_handle, ss.str().c_str(), 20, 0);
+
+					Sleep(10);
+				}
+			}
+			});
+		std::thread* test5 = new thread([&]() {
+
+			if (!sendGuard.load(memory_order_acquire))
+			{
+				while (true)
+				{
+					int randomnum = dist(gen);
+
+					send(pool5.m_fullSockPtrVector[randomnum]->m_handle, ss.str().c_str(), 20, 0);
+
+					Sleep(10);
+				}
+			}
+			});
+
+		std::vector <std::thread*> threads;
+
+		threads.push_back(test1);
+		threads.push_back(test2);
+		threads.push_back(test3);
+		threads.push_back(test4);
+		threads.push_back(test5);
+
+		for (auto thread : threads)
 		{
 			thread->join();
 		}*/
-		//Sleep(2000);
-
-		//client1.OverlapDisconnectEx();
-
-		
-
-		//printf("Write Your ID & Password\n");
-		//printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
-
-		//string username;
-		//string password;
-
-		//WriteUserInfo(username, "Username");
-		//WriteUserInfo(password, "Password");
-
-		//MakePacket_Login_Request(&client1, username, password);
-
-		////std::thread chatThread(Input, &client1);
-
-		////std::thread forThread(ForPrint);
-		//chatThread.join();
-		//forThread.join();
-
-		//sock.m_receiveBuffer
-
-		//client1.OverlapWSAsend(&message);
-
-		//while (true)
-		//{
-		//	IocpEvents iocpEvents;
-
-		//	iocp.Wait(iocpEvents, 100);
-
-		//	IOType ioType;
-
-		//	for (int i = 0; i < iocpEvents.m_eventCount; ++i)
-		//	{
-		//		auto& iocpEvent = iocpEvents.m_events[i];
-
-		//		ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
-
-		//		if (ioType == IOType::READ)
-		//		{
-		//			printf("%s\n", client1.m_receiveBuffer);
-
-		//			RtlZeroMemory(client1.m_receiveBuffer, sizeof(client1.m_receiveBuffer));
-
-		//			client1.OverlapWSArecv();
-		//		}
-		//		else if (ioType == IOType::WRITE)
-		//		{
-		//			delete iocpEvent.lpOverlapped;
-		//			//delete[] ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_wsaBuf.buf;
-		//		}
-		//	}
-		//}
-
-		//client1.OverlapWSAsend( &message);
-		//send(client1.GetHandle(), (const char*)&message, sizeof(message), 0);
-
-
-		//recv(client1.GetHandle(), (char*)&client1.m_overlappedStruct.m_buffer, sizeof(client1.m_overlappedStruct.m_buffer), 0);
-
-		//printf("%s\n", client1.m_overlappedStruct.m_buffer);
-
-		//closesocket(client1.m_handle);
 	}
 	catch (Exception& e)
 	{

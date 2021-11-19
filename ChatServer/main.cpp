@@ -35,7 +35,7 @@ int main()
 
 		Iocp iocp(0);
 
-		SocketPool sockPool(5000, false, SockType::TCP);
+		SocketPool sockPool(10, false, SockType::TCP);
 
 		std::cout << "listenSock : " << &listenSock << std::endl;
 
@@ -99,6 +99,8 @@ int main()
 							sockPtr->OverlapWSArecv();
 
 							sockPtr->m_isOverlapped = true;
+
+							printf("%d\n", (int)sockPtr->m_handle);
 
 							break;
 						}
