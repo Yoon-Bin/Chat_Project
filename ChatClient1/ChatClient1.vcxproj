@@ -37,7 +37,7 @@
     <ClInclude Include="..\CustomSourceHeader\Exception.h" />
     <ClInclude Include="..\CustomSourceHeader\Iocp.h" />
     <ClInclude Include="..\CustomSourceHeader\Packet.h" />
-    <ClInclude Include="..\CustomSourceHeader\PacketProcess.h" />
+    <ClInclude Include="..\CustomSourceHeader\PacketFunction_Client.h" />
     <ClInclude Include="..\CustomSourceHeader\Pool.h" />
     <ClInclude Include="..\CustomSourceHeader\Socket.h" />
     <ClInclude Include="..\CustomSourceHeader\SocketPool.h" />
@@ -150,7 +150,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Program Files\MySQL\MySQL Server 8.0\include;%BOOST_ROOT%;../CustomSourceHeader</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\GitForkSourceFolder\Chat_Project\ChatClient1;C:\Program Files\MySQL\MySQL Server 8.0\include;%BOOST_ROOT%;../CustomSourceHeader</AdditionalIncludeDirectories>
       <PrecompiledHeader>Create</PrecompiledHeader>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
     </ClCompile>
@@ -168,7 +168,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Program Files\MySQL\MySQL Server 8.0\include;%BOOST_ROOT%;../CustomSourceHeader</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\GitForkSourceFolder\Chat_Project\ChatClient1;C:\Program Files\MySQL\MySQL Server 8.0\include;%BOOST_ROOT%;../CustomSourceHeader</AdditionalIncludeDirectories>
       <PrecompiledHeader>Create</PrecompiledHeader>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
     </ClCompile>

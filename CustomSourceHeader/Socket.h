@@ -48,7 +48,7 @@ public:
 	void OverlapAcceptEx(const Socket& listenSock);
 
 	void OverlapAcceptEx(const Socket* const clientSock) const;
-	void UpdateAcceptContext(Socket* listenSockPtr) const;
+	void UpdateAcceptContext(const Socket& listenSockPtr) const;
 	void OverlapConnectEx(const EndPoint* const endPoint) const;
 	bool OverlapDisconnectEx();
 	void OverlapWSAsend(void* const p) const;
@@ -58,7 +58,7 @@ public:
 
 	SOCKET GetHandle() const;
 
-	unsigned short m_id;
+	mutable unsigned short m_id;
 
 	bool m_isOverlapped = false;
 

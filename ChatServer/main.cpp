@@ -1,14 +1,12 @@
 #include "stdafx.h"
 #include "Iocp.h"
 #include "SocketPool.h"
-#include "PacketProcess.h"
-
-#include <atomic>
+#include "PacketFunction_Server.h"
 
 #define SIZE 0
 #define TYPE 1
 
-static std::map<PacketType, void(*)(Socket*)> callbackmap;
+static std::map<PacketType, void(*)(const Socket* const)> callbackmap;
 
 int main()
 {
@@ -21,11 +19,11 @@ int main()
 			throw("WSAStartup Fail");
 		}
 #endif
-		printf("%s\n\n", mysql_get_client_info());
 
-		callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat_Resend });
-		callbackmap.insert({ PacketType::LOGIN_REQUEST, PacketProcess_Login_Request });
-		callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REQUEST, PacketProcess_Create_Account_Request });
+		printf("%s\n\n", mysql_get_client_info());
+		callbackmap.insert({ PacketType::CHAT, S2C::Chat_Reply });
+		callbackmap.insert({ PacketType::LOGIN_REQUEST, S2C::Login_Reply });
+		callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REQUEST, S2C::Create_Account_Reply });
 
 		bool setTrue	= true;
 		bool setFalse	= false;
@@ -66,9 +64,9 @@ int main()
 
 		std::vector<std::shared_ptr<std::thread>> threads;
 
-		for (int i = 0; i < 4; i++)
+		for (int i = 0; i < 2; i++)
 		{
-			std::shared_ptr<std::thread> ovlpThread(new std::thread([&]() {
+			std::shared_ptr<std::thread> ovlpThread(new std::thread([&iocp, &sockPool, &listenSock]() {
 
 				while (true)
 				{
@@ -94,7 +92,7 @@ int main()
 
 							Socket* sockPtr = sockPool.m_fullSockPtrVector[sockID].get();
 
-							sockPtr->UpdateAcceptContext(&listenSock);
+							sockPtr->UpdateAcceptContext(listenSock);
 
 							sockPtr->OverlapWSArecv();
 

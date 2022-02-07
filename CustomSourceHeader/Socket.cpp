@@ -1,7 +1,5 @@
 #include "stdafx.h"
 #include "Socket.h"
-//extern unordered_map<int, const char*> sockOptTable;
-
 
 Socket::Socket(SockType socketType)
 {
@@ -185,7 +183,7 @@ void Socket::OverlapAcceptEx(const Socket* const clientSock) const
 	}
 }
 
-void Socket::UpdateAcceptContext(Socket* listenSockPtr) const
+void Socket::UpdateAcceptContext(const Socket& listenSockPtr) const
 {
 	sockaddr_in* ignore1;
 	sockaddr_in* ignore3;
@@ -222,8 +220,8 @@ void Socket::UpdateAcceptContext(Socket* listenSockPtr) const
 		m_handle,
 		SOL_SOCKET,
 		SO_UPDATE_ACCEPT_CONTEXT,
-		(char*)&listenSockPtr->m_handle,
-		sizeof(listenSockPtr->m_handle)
+		(char*)&listenSockPtr.m_handle,
+		sizeof(listenSockPtr.m_handle)
 	);
 
 	if (result != 0)

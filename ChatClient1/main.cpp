@@ -1,81 +1,20 @@
 #include "stdafx.h"
 #include "CustomHeader.h"
-#include "PacketProcess.h"
+#include "PacketFunction_Client.h"
 #include "boost/random/mersenne_twister.hpp"
 #include "boost/random/uniform_int_distribution.hpp"
-
+#include <stdlib.h>
 
 #define SIZE 0
 #define TYPE 1
 
-using namespace std;
-
-static std::map<PacketType, void(*)(Socket*)> callbackmap;
-
-void Input(Socket* sock)
-{
-	while (true)
-	{
-		string message;
-
-		std::getline(cin, message);
-
-		if (message.length() != 0)
-		{
-			unsigned short packetSize = sizeof(Packet_Chat) + sizeof(char) * message.length() + 1;
-
-			Packet_Chat* packet = (Packet_Chat*)malloc(packetSize);
-
-			if (packet != NULL)
-			{
-				packet->size = static_cast<char>(packetSize);
-				packet->type = static_cast<char>(PacketType::CHAT);
-				packet->id = sock->m_id;
-
-				strcpy(packet->message, message.c_str());
-
-				sock->OverlapWSAsend(packet);
-
-				free(packet);
-			}
-		}
-	}
-}
-
-auto MakePacket_Login_Request = [](Socket* sockPtr, string username, string password) {
-
-	unsigned short packetSize = sizeof(Packet_Login_Request);
-
-	Packet_Login_Request packet;
-
-	packet.size = static_cast<char>(packetSize);
-	packet.type = static_cast<char>(PacketType::LOGIN_REQUEST);
-	strcpy(packet.username, username.c_str());
-	strcpy(packet.password, password.c_str());
-
-	sockPtr->OverlapWSAsend(&packet);
-};
-
-//struct Client
-//{
-//	Socket sock;
-//
-//	char m_buffer[10] = "abcdefg";
-//
-//	std::thread* sockThread = new std::thread([&]() {
-//
-//		while (true)
-//		{
-//			sock.OverlapWSAsend(m_buffer);
-//		}
-//	});
-//};
+static std::map<PacketType, void(*)(const Socket* const)> callbackmap;
 
 int main()
 {
-	callbackmap.insert({ PacketType::CHAT, PacketProcess_Chat_Print });
-	callbackmap.insert({ PacketType::LOGIN_REPLY, PacketProcess_Login_Reply });
-	callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REPLY, PacketProcess_Create_Account_Reply });
+	callbackmap.insert({ PacketType::CHAT, S2C::Chat_Print });
+	callbackmap.insert({ PacketType::LOGIN_REPLY, S2C::Login_Reply });
+	callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REPLY, S2C::Create_Account_Reply });
 
 	try
 	{
@@ -98,76 +37,106 @@ int main()
 
 		client1.OverlapConnectEx(&serverEndPoint);
 
-		printf("Write Your ID & Password\n");
-		printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
+		C2S::ProcessLogin(&client1);
 
-		string username;
-		string password;
+		std::shared_ptr<std::thread> chatThread(new std::thread([&client1]() {
 
-		WriteUserInfo(username, "Username");
-		WriteUserInfo(password, "Password");
-
-		MakePacket_Login_Request(&client1, username, password);
-
-		std::thread chatThread(Input, &client1);
-
-		//std::thread forThread(ForPrint);
-		chatThread.join();
-		//forThread.join();
-
-		//sock.m_receiveBuffer
-
-		while (true)
-		{
-			IocpEvents iocpEvents;
-			iocp.Wait(iocpEvents, 0);
-
-			for (int i = 0; i < iocpEvents.m_eventCount; ++i)
+			while (true)
 			{
-				auto& iocpEvent = iocpEvents.m_events[i];
+				std::string message;
 
-				IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
+				std::getline(std::cin, message);
 
-				/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
+				if (message.length() != 0)
 				{
-					printf("0 byte\n");
-				}*/
+					unsigned short packetSize = sizeof(Packet_Chat) + sizeof(char) * message.length() + 1;
 
-				switch (ioType)
-				{
-				case IOType::CONNECT:
-				{
-					client1.OverlapWSArecv();
+					Packet_Chat* packet = (Packet_Chat*)malloc(packetSize);
 
-					break;
-				}
-				case IOType::READ:
-				{
-					if (iocpEvent.dwNumberOfBytesTransferred > 0)
+					if (packet != NULL)
 					{
-						client1.m_isOverlapped = false;
+						packet->type = static_cast<char>(PacketType::CHAT);
 
-						PacketType packetType = static_cast<PacketType>(client1.m_overlappedStruct.m_buffer[TYPE]);
+						packet->size = packetSize;
 
-						callbackmap[packetType](&client1);
+						packet->id = client1.m_id;
 
-						client1.OverlapWSArecv();
+						strcpy(packet->message, message.c_str());
 
-						client1.m_isOverlapped = true;
+						client1.OverlapWSAsend(packet);
+
+						free(packet);
 					}
-
-					break;
-				}
-				case IOType::WRITE:
-				{
-					delete iocpEvent.lpOverlapped;
-
-					break;
-				}
 				}
 			}
+
+			}));
+
+		std::shared_ptr<std::thread> ovlpThread(new std::thread([&iocp, &client1]() {
+
+			while (true)
+			{
+				IocpEvents iocpEvents;
+				iocp.Wait(iocpEvents, 0);
+
+				for (int i = 0; i < iocpEvents.m_eventCount; ++i)
+				{
+					auto& iocpEvent = iocpEvents.m_events[i];
+					               
+					IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
+
+					/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
+					{
+						printf("0 byte\n");
+					}*/
+
+					switch (ioType)
+					{
+					case IOType::CONNECT:
+					{
+						client1.OverlapWSArecv();
+
+						break;
+					}
+					case IOType::READ:
+					{
+						if (iocpEvent.dwNumberOfBytesTransferred > 0)
+						{
+							client1.m_isOverlapped = false;
+
+							PacketType packetType = static_cast<PacketType>(client1.m_overlappedStruct.m_buffer[TYPE]);
+
+							callbackmap[packetType](&client1);
+
+							client1.OverlapWSArecv();
+
+							client1.m_isOverlapped = true;
+						}
+
+						break;
+					}
+					case IOType::WRITE:
+					{
+						delete iocpEvent.lpOverlapped;
+
+						break;
+					}
+					}
+				}
+			}
+			}));
+
+		std::vector<std::shared_ptr<std::thread>> threadVector;
+
+		threadVector.push_back(ovlpThread);
+		//threadVector.push_back(chatThread);
+
+		for (auto th : threadVector)
+		{
+			th->join();
 		}
-	
+
+		//sock.m_receiveBuffer
 
 		//client1.OverlapWSAsend( &message);
 		//send(client1.GetHandle(), (const char*)&message, sizeof(message), 0);
@@ -180,9 +149,10 @@ int main()
 		//closesocket(client1.m_handle);
 
 
-		///////////////////
-		//Multi Threading//
-		///////////////////
+		/******************/
+		//Multiple Clients//
+		/******************/
+
 		/*
 		boost::random::mt19937 gen;
 		boost::random::uniform_int_distribution<> dist(0, 99);
