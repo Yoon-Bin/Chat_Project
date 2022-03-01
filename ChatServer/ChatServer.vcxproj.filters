@@ -33,9 +33,6 @@
     <ClCompile Include="..\CustomSourceHeader\Pool.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\CustomSourceHeader\Socket.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="..\CustomSourceHeader\SocketPool.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -43,6 +40,12 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="..\CustomSourceHeader\stdafx.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CustomSourceHeader\Serializer.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CustomSourceHeader\Socket.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -84,6 +87,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="..\CustomSourceHeader\PacketFunction_Server.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\CustomSourceHeader\Serializer.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

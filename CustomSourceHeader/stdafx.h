@@ -28,10 +28,17 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <stdio.h>
+#include <stdlib.h>
 #include <conio.h>
 #include <iostream>
 #include <bitset>
 
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/string.hpp>
+
 #include "Exception.h"
 #include "EndPoint.h"
 #include "Packet.h"
+#include "Serializer.h"

@@ -45,6 +45,9 @@
     <ClCompile Include="..\CustomSourceHeader\Bitset.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="..\CustomSourceHeader\Serializer.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\CustomSourceHeader\Bitset.h">
@@ -81,6 +84,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="..\CustomSourceHeader\PacketFunction_Client.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\CustomSourceHeader\Serializer.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

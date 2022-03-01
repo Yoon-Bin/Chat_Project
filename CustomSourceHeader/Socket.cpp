@@ -330,6 +330,47 @@ void Socket::Connect(const EndPoint& endPoint)
 	}
 }
 
+void Socket::OverlapWSAsend(const std::shared_ptr<std::stringstream>& ss) const
+{
+	m_flag = 0;
+
+	std::shared_ptr<std::stringstream> sstest = ss;
+	std::string a;
+
+	//std::cout << sstest->str() << std::endl;
+
+	OverlappedStruct* ovlpStruct = new OverlappedStruct;
+
+	RtlZeroMemory(&ovlpStruct->m_wsaOverlapped, sizeof(ovlpStruct->m_wsaOverlapped));
+
+	memcpy(ovlpStruct->m_buffer, sstest->str().c_str(), sstest->str().size());
+
+	//strcpy(ovlpStruct->m_wsaBuf.buf, sstest->str().c_str());
+
+	ovlpStruct->m_ioType = IOType::WRITE;
+	ovlpStruct->m_wsaBuf.buf = ovlpStruct->m_buffer;
+	ovlpStruct->m_wsaBuf.len = ss->str().size();
+
+	int result = WSASend(
+		m_handle,
+		&ovlpStruct->m_wsaBuf,
+		1,
+		NULL,
+		m_flag,
+		&ovlpStruct->m_wsaOverlapped,
+		NULL
+	);
+
+	if (result != 0 && WSAGetLastError() != ERROR_IO_PENDING)
+	{
+		std::stringstream ss;
+
+		ss << "WSASend Failed : " << GetLastErrorAsString().c_str();
+
+		throw Exception(ss.str().c_str());
+	}
+}
+
 void Socket::OverlapWSAsend(void* const p) const
 {
 	m_flag = 0;
@@ -367,6 +408,8 @@ void Socket::OverlapWSAsend(void* const p) const
 void Socket::OverlapWSArecv()
 {
 	m_flag = 0;
+
+	RtlZeroMemory(m_overlappedStruct.m_buffer, sizeof(m_overlappedStruct.m_buffer));
 
 	m_overlappedStruct.m_ioType = IOType::READ;
 	m_overlappedStruct.m_wsaBuf.buf = &m_overlappedStruct.m_buffer[0];
