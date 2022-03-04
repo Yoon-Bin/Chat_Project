@@ -61,7 +61,19 @@ namespace C2S
 
 		WriteUserInfo(username, password);
 		
-		C2S::Login_Request(sockPtr, username, password);
+		//C2S::Login_Request(sockPtr, username, password);
+
+		Serializer se;
+
+		std::string message("asdfsdfsdfsdfsfdsfdsfdssdf");
+
+		se << username;
+		se << password;
+		se << message;
+		Header header(se.GetSize(), PacketType::LOGIN_REQUEST);
+		se << header;
+
+		sockPtr->OverlapWSAsend(se);
 	};
 }
 

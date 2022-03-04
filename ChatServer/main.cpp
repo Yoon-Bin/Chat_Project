@@ -2,6 +2,9 @@
 #include "Iocp.h"
 #include "SocketPool.h"
 #include "PacketFunction_Server.h"
+#include "Serializer.h"
+#include <chrono>
+#include <array>
 
 #define SIZE 0
 #define TYPE 1
@@ -109,10 +112,21 @@ int main()
 							if (iocpEvent.dwNumberOfBytesTransferred > 0)
 							{
 								sockPtr->m_isOverlapped = false;
+								
+								Serializer se(sockPtr->m_overlappedStruct.m_buffer);
 
-								PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
+								//패킷 재조립 필요
+								//PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
+								Header header;
+								se >> header;
 
-								callbackmap[packetType](sockPtr);
+								std::string username;
+								std::string password;
+								
+								se >> username;
+								se >> password;
+
+								callbackmap[header.m_type](sockPtr);
 
 								sockPtr->OverlapWSArecv();
 

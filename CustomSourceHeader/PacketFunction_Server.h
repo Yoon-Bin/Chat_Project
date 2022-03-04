@@ -50,9 +50,12 @@ namespace S2C
 {
 	auto Chat_Reply = [](const Socket* const sockPtr) {
 
-		Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
+		std::cout << sockPtr->m_overlappedStruct.m_buffer[0] << std::endl;
+		std::cout << sockPtr->m_overlappedStruct.m_buffer[1] << std::endl;
 
-		sockPtr->OverlapWSAsend(packet);
+		//Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
+
+		//sockPtr->OverlapWSAsend(packet);
 	};
 
 	auto Create_Account_Reply = [](const Socket* const sockPtr) {
@@ -142,10 +145,10 @@ namespace C2S
 {
 	auto Chat_Reply = [](const Socket* const sockPtr) {
 
-		Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
+		std::cout << sockPtr->m_overlappedStruct.m_buffer[0] << std::endl;
+		std::cout << sockPtr->m_overlappedStruct.m_buffer[1] << std::endl;
 
 		//printf("%d : %s\n", packet->id, packet->message);
-		printf("%d : %s\n", (int)sockPtr->m_handle, packet->message);
 	};
 }
 

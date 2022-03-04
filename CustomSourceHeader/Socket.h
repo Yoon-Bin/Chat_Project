@@ -2,7 +2,7 @@
 
 #include "SocketUtil.h"
 
-#define MAXBUFFERSIZE 256
+#define MAXBUFFERSIZE 32
 
 enum class SockType
 {
@@ -51,6 +51,7 @@ public:
 	void UpdateAcceptContext(const Socket& listenSockPtr) const;
 	void OverlapConnectEx(const EndPoint* const endPoint) const;
 	bool OverlapDisconnectEx();
+	void OverlapWSAsend(const Serializer& se) const;
 	void OverlapWSAsend(void* const p) const;
 	void OverlapWSArecv();
 

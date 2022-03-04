@@ -330,26 +330,17 @@ void Socket::Connect(const EndPoint& endPoint)
 	}
 }
 
-void Socket::OverlapWSAsend(const std::shared_ptr<std::stringstream>& ss) const
+void Socket::OverlapWSAsend(const Serializer& se) const
 {
 	m_flag = 0;
-
-	std::shared_ptr<std::stringstream> sstest = ss;
-	std::string a;
-
-	//std::cout << sstest->str() << std::endl;
 
 	OverlappedStruct* ovlpStruct = new OverlappedStruct;
 
 	RtlZeroMemory(&ovlpStruct->m_wsaOverlapped, sizeof(ovlpStruct->m_wsaOverlapped));
 
-	memcpy(ovlpStruct->m_buffer, sstest->str().c_str(), sstest->str().size());
-
-	//strcpy(ovlpStruct->m_wsaBuf.buf, sstest->str().c_str());
-
 	ovlpStruct->m_ioType = IOType::WRITE;
-	ovlpStruct->m_wsaBuf.buf = ovlpStruct->m_buffer;
-	ovlpStruct->m_wsaBuf.len = ss->str().size();
+	ovlpStruct->m_wsaBuf.buf = se.GetBuffer();
+	ovlpStruct->m_wsaBuf.len = se.GetSize();
 
 	int result = WSASend(
 		m_handle,

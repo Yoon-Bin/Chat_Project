@@ -3,7 +3,6 @@
 #include "PacketFunction_Client.h"
 #include "boost/random/mersenne_twister.hpp"
 #include "boost/random/uniform_int_distribution.hpp"
-#include <stdlib.h>
 
 #define SIZE 0
 #define TYPE 1
@@ -35,43 +34,6 @@ int main()
 
 		iocp.Add(&client1);
 
-		client1.OverlapConnectEx(&serverEndPoint);
-
-		C2S::ProcessLogin(&client1);
-
-		std::shared_ptr<std::thread> chatThread(new std::thread([&client1]() {
-
-			while (true)
-			{
-				std::string message;
-
-				std::getline(std::cin, message);
-
-				if (message.length() != 0)
-				{
-					unsigned short packetSize = sizeof(Packet_Chat) + sizeof(char) * message.length() + 1;
-
-					Packet_Chat* packet = (Packet_Chat*)malloc(packetSize);
-
-					if (packet != NULL)
-					{
-						packet->type = static_cast<char>(PacketType::CHAT);
-
-						packet->size = packetSize;
-
-						packet->id = client1.m_id;
-
-						strcpy(packet->message, message.c_str());
-
-						client1.OverlapWSAsend(packet);
-
-						free(packet);
-					}
-				}
-			}
-
-			}));
-
 		std::shared_ptr<std::thread> ovlpThread(new std::thread([&iocp, &client1]() {
 
 			while (true)
@@ -82,7 +44,7 @@ int main()
 				for (int i = 0; i < iocpEvents.m_eventCount; ++i)
 				{
 					auto& iocpEvent = iocpEvents.m_events[i];
-					               
+
 					IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
 					/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
@@ -125,6 +87,52 @@ int main()
 				}
 			}
 			}));
+
+		client1.OverlapConnectEx(&serverEndPoint);
+
+		C2S::ProcessLogin(&client1);
+
+		/*std::shared_ptr<std::thread> chatThread(new std::thread([&client1]() {
+
+			while (true)
+			{
+				std::string message;
+
+				std::getline(std::cin, message);
+
+				if (message.length() != 0)
+				{
+					std::shared_ptr<std::stringstream> ss = std::make_shared<std::stringstream>();
+
+					boost::archive::binary_oarchive packettest(*ss);
+					
+					unsigned short packetSize = sizeof(Packet_Chat) + sizeof(char) * message.length() + 1;
+
+					Packet_Chat* packet = (Packet_Chat*)malloc(packetSize);
+
+					if (packet != NULL)
+					{
+						packet->type = static_cast<char>(PacketType::CHAT);
+
+						packet->size = packetSize;
+
+						packet->id = client1.m_id;
+
+						strcpy(packet->message, message.c_str());
+
+						packettest << 'c';
+						packettest << static_cast<char>(PacketType::CHAT);
+						packettest << 1;
+						packettest << message;
+
+						client1.OverlapWSAsend(ss);
+
+						free(packet);
+					}
+				}
+			}
+
+			}));*/
 
 		std::vector<std::shared_ptr<std::thread>> threadVector;
 
