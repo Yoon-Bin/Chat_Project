@@ -8,19 +8,8 @@ public:
 	SocketPool(int sockCount, bool isBinded, SockType protocol);
 	~SocketPool();
 
-	size_t		GetFullSockCount()		const;
-	/*size_t		GetUsableSockCount()	const;
-
-	void		PushUsableSockPtr(Socket* sockPtr);
-	void		PopUsableSockPtr();
-	Socket*		GetUsableSockPtr();*/
-
-public:
-	//필요 없을 수도?
-	//std::queue<Socket*> m_usableSockPtrStack;
+	size_t GetFullSockCount() const;
 
 	std::vector<std::unique_ptr<Socket>> m_fullSockPtrVector;
-private:
-	
 };
 

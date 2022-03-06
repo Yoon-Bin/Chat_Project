@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "Socket.h"
 
-Socket::Socket(SockType socketType)
+Socket::Socket(const SockType& socketType)
 {
 	if (socketType == SockType::TCP)
 	{
@@ -22,7 +22,7 @@ Socket::~Socket()
 	closesocket(m_handle);
 }
 
-void Socket::SetSockOpt(const int level, const int optname, const int optval) const
+void Socket::SetSockOpt(const int level, const int optname, const bool optval) const
 {
 	if (setsockopt(m_handle, level, optname, (char*)&optval, sizeof(optval)) < 0)
 	{
@@ -82,65 +82,12 @@ void Socket::Listen(const int backLog) const
 	}
 }
 
-
-void Socket::OverlapAcceptEx(const Socket& listenSock)
+void Socket::OverlapAcceptEx(const Socket& clientSock) const
 {
 	DWORD bytes;
 	UUID uuid = WSAID_ACCEPTEX;
 
-	m_overlappedStruct.m_ioType = IOType::ACCEPT;
-
-	if (AcceptEx == NULL)
-	{
-		WSAIoctl(
-			m_handle,
-			SIO_GET_EXTENSION_FUNCTION_POINTER,
-			&uuid,
-			sizeof(uuid),
-			&AcceptEx,
-			sizeof(AcceptEx),
-			&bytes,
-			NULL,
-			NULL
-		);
-
-		if (AcceptEx == NULL)
-		{
-			throw Exception("AcceptEx Fail");
-		}
-	}
-
-	char TestBuffer[100];
-	DWORD ignored = 0;
-
-	bool result = AcceptEx(
-		listenSock.m_handle,
-		m_handle,
-		&TestBuffer,
-		0,
-		50,
-		50,
-		&ignored,
-		&m_overlappedStruct.m_wsaOverlapped
-	);
-
-	if (!result && WSAGetLastError() != ERROR_IO_PENDING)
-	{
-		std::stringstream ss;
-
-		ss << "OverlapAccept Error : " << GetLastErrorAsString().c_str();
-
-		throw Exception(ss.str().c_str());
-	}
-}
-
-
-void Socket::OverlapAcceptEx(const Socket* const clientSock) const
-{
-	DWORD bytes;
-	UUID uuid = WSAID_ACCEPTEX;
-
-	clientSock->m_overlappedStruct.m_ioType = IOType::ACCEPT;
+	clientSock.m_overlappedStruct.m_ioType = IOType::ACCEPT;
 
 	if (AcceptEx == NULL)
 	{
@@ -164,13 +111,13 @@ void Socket::OverlapAcceptEx(const Socket* const clientSock) const
 	char TestBuffer[100];
 	bool result = AcceptEx(
 		m_handle,
-		clientSock->m_handle,
+		clientSock.m_handle,
 		&TestBuffer,
 		0,
 		sizeof(sockaddr_in) + 16,
 		sizeof(sockaddr_in) + 16,
 		NULL,
-		&clientSock->m_overlappedStruct.m_wsaOverlapped
+		&clientSock.m_overlappedStruct.m_wsaOverlapped
 	);
 
 	if (!result && WSAGetLastError() != ERROR_IO_PENDING)
@@ -235,7 +182,7 @@ void Socket::UpdateAcceptContext(const Socket& listenSockPtr) const
 
 }
 
-void Socket::OverlapConnectEx(const EndPoint* const endPoint) const
+void Socket::OverlapConnectEx(const EndPoint& endPoint) const
 {
 	DWORD bytes;
 	UUID uuid = WSAID_CONNECTEX;
@@ -259,8 +206,8 @@ void Socket::OverlapConnectEx(const EndPoint* const endPoint) const
 
 	bool result = ConnectEx(
 		m_handle,
-		(sockaddr*)&endPoint->m_sockAddrIn,
-		sizeof(endPoint->m_sockAddrIn),
+		(sockaddr*)&endPoint.m_sockAddrIn,
+		sizeof(endPoint.m_sockAddrIn),
 		NULL,
 		NULL,
 		NULL,

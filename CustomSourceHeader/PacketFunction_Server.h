@@ -2,7 +2,7 @@
 #include "stdafx.h"
 #include "Socket.h"
 
-auto ExecuteQuery = [](const std::string queryString, MYSQL_ROW& row)->bool {
+auto ExecuteQuery = [](const char* queryString, MYSQL_ROW& row)->bool {
 
 	MYSQL conn;
 	MYSQL* connPtr = nullptr;
@@ -20,7 +20,7 @@ auto ExecuteQuery = [](const std::string queryString, MYSQL_ROW& row)->bool {
 		return false;
 	}
 
-	stat = mysql_query(&conn, queryString.c_str());
+	stat = mysql_query(&conn, queryString);
 
 	if (stat != 0)
 	{
@@ -48,118 +48,133 @@ auto ExecuteQuery = [](const std::string queryString, MYSQL_ROW& row)->bool {
 
 namespace S2C
 {
-	auto Chat_Reply = [](const Socket* const sockPtr) {
+	auto Chat_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
-		std::cout << sockPtr->m_overlappedStruct.m_buffer[0] << std::endl;
-		std::cout << sockPtr->m_overlappedStruct.m_buffer[1] << std::endl;
 
 		//Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
 
 		//sockPtr->OverlapWSAsend(packet);
 	};
 
-	auto Create_Account_Reply = [](const Socket* const sockPtr) {
+	auto Create_Account_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
-		Packet_Create_Account_Request* packet = reinterpret_cast<Packet_Create_Account_Request*>(sockPtr->m_overlappedStruct.m_buffer);
+		std::string username;
+		std::string password;
 
-		Packet_Create_Account_Reply replyPacket;
+		serializerRef >> username;
+		serializerRef >> password;
 
 		std::string queryString;
 		MYSQL_ROW row;
 
+		//파라미터 팩 사용으로 querymaker 구현
 		queryString.append("insert into user(username,password) values('");
-		queryString.append(packet->username);
+		queryString.append(username);
 		queryString.append("', '");
-		queryString.append(packet->password);
+		queryString.append(password);
 		queryString.append("')");
 
-		bool result = ExecuteQuery(queryString, row);
+		bool result = ExecuteQuery(queryString.c_str(), row);
+
+		Serializer serializer;
 
 		if (result)
 		{
-			replyPacket.success = true;
+			serializer << true;
 		}
 		else
 		{
-			replyPacket.success = false;
+			serializer << false;
 		}
 
-		sockPtr->OverlapWSAsend(&replyPacket);
+		serializer.SetHeader(PacketType::CRERATE_ACCOUNT_REPLY);
+		sockRef.OverlapWSAsend(serializer);
 	};
 
-	auto Login_Reply = [](const Socket* const sockPtr) {
+	auto Login_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
-		Packet_Login_Request* packet = reinterpret_cast<Packet_Login_Request*>(sockPtr->m_overlappedStruct.m_buffer);
+		std::string username;
+		std::string password;
+
+		serializerRef >> username;
+		serializerRef >> password;
 
 		MYSQL_ROW row;
 		std::string queryString;
 
 		queryString.append("select password from user where username='");
-		queryString.append(packet->username);
+		queryString.append(username.c_str());
 		queryString.append("'");
 
-		bool result = ExecuteQuery(queryString, row);
+		bool result = ExecuteQuery(queryString.c_str(), row);
 
-		Packet_Login_Reply replyPacket;
+		Serializer serializer;
 
 		if (result)
 		{
 			//해당 username row 없음
 			if (row == nullptr)
 			{
-				replyPacket.id = 0;
-				replyPacket.success = false;
-				replyPacket.error = LOGIN_ERROR_WRONG_USERNAME;
+				serializer << static_cast<unsigned short>(0);
+				serializer << false;
+				serializer << static_cast<unsigned char>(LOGIN_ERROR_WRONG_USERNAME);
 			}
 			//해당 username row 있음
 			else
 			{
-				replyPacket.id = static_cast<unsigned short>(sockPtr->m_handle);
+				serializer << static_cast<unsigned short>(sockRef.m_handle);
 
 				//password 일치
-				if (strcmp(row[0], packet->password) == 0)
+				if (strcmp(row[0], password.c_str()) == 0)
 				{
-					replyPacket.success = true;
-					replyPacket.error = LOGIN_ERROR_NO_ERROR;
+					serializer << true;
+					serializer << static_cast<unsigned char>(LOGIN_ERROR_NO_ERROR);
 				}
 				//password 불일치
 				else
 				{
-					replyPacket.success = false;
-					replyPacket.error = LOGIN_ERROR_WRONG_PASSWORD;
+					serializer << false;
+					serializer << static_cast<unsigned char>(LOGIN_ERROR_WRONG_PASSWORD);
 				}
 			}
-
-			sockPtr->OverlapWSAsend(&replyPacket);
 		}
 		else
 		{
-			replyPacket.id = 0;
-			replyPacket.success = false;
-			replyPacket.error = DB_CONNECTION_FAIL;
+			serializer << static_cast<unsigned short>(0);
+			serializer << false;
+			serializer << static_cast<unsigned char>(DB_CONNECTION_FAIL);
 		}
+
+		serializer.SetHeader(PacketType::LOGIN_REPLY);
+		sockRef.OverlapWSAsend(serializer);
 	};
 }
 
-namespace C2S
-{
-	auto Chat_Reply = [](const Socket* const sockPtr) {
+auto PacketProcess = [](const Socket& sockRef) {
 
-		std::cout << sockPtr->m_overlappedStruct.m_buffer[0] << std::endl;
-		std::cout << sockPtr->m_overlappedStruct.m_buffer[1] << std::endl;
+	Serializer serializer(sockRef.m_overlappedStruct.m_buffer);
 
-		//printf("%d : %s\n", packet->id, packet->message);
-	};
-}
+	Header header;
+
+	serializer.GetHeader(header);
+
+	switch (header.m_type)
+	{
+	case PacketType::LOGIN_REQUEST:
+		S2C::Login_Reply(sockRef, serializer);
+		break;
+
+	case PacketType::CRERATE_ACCOUNT_REQUEST:
+		S2C::Create_Account_Reply(sockRef, serializer);
+		break;
+
+	case PacketType::CHAT:
+
+	default:
+		std::cout << "PacketProcess Error : No such type" << std::endl;
+		break;
+	}
 
 
-
-
-
-
-
-
-
-
-
+};
 

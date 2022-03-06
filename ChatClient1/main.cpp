@@ -7,14 +7,8 @@
 #define SIZE 0
 #define TYPE 1
 
-static std::map<PacketType, void(*)(const Socket* const)> callbackmap;
-
 int main()
 {
-	callbackmap.insert({ PacketType::CHAT, S2C::Chat_Print });
-	callbackmap.insert({ PacketType::LOGIN_REPLY, S2C::Login_Reply });
-	callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REPLY, S2C::Create_Account_Reply });
-
 	try
 	{
 #ifdef _WIN32
@@ -24,8 +18,6 @@ int main()
 			throw("WSAStartup Fail");
 		}
 #endif
-		EndPoint serverEndPoint("192.168.55.52", 4444);
-
 		Iocp iocp(1);
 
 		Socket client1(SockType::TCP);
@@ -45,7 +37,7 @@ int main()
 				{
 					auto& iocpEvent = iocpEvents.m_events[i];
 
-					IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
+					IOType& ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
 					/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
 					{
@@ -66,9 +58,11 @@ int main()
 						{
 							client1.m_isOverlapped = false;
 
-							PacketType packetType = static_cast<PacketType>(client1.m_overlappedStruct.m_buffer[TYPE]);
+							//PacketType packetType = static_cast<PacketType>(client1.m_overlappedStruct.m_buffer[TYPE]);
 
-							callbackmap[packetType](&client1);
+							PacketProcess(client1);
+
+							//callbackmap[packetType](&client1);
 
 							client1.OverlapWSArecv();
 
@@ -88,9 +82,10 @@ int main()
 			}
 			}));
 
-		client1.OverlapConnectEx(&serverEndPoint);
+		client1.OverlapConnectEx(EndPoint::EndPoint("192.168.55.52", 4444));
 
 		C2S::ProcessLogin(&client1);
+
 
 		/*std::shared_ptr<std::thread> chatThread(new std::thread([&client1]() {
 

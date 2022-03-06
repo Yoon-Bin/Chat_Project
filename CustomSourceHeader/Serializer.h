@@ -8,7 +8,7 @@ struct Header
 {
 	Header() {}
 	Header(const size_t& size, const PacketType& type)
-		: m_size(static_cast<unsigned short>(size + sizeof(Header))), m_type(type) {}
+		: m_size(static_cast<unsigned short>(size)), m_type(type) {}
 	unsigned short	m_size = 0;
 	PacketType		m_type = PacketType::TEST;
 };
@@ -23,11 +23,13 @@ public:
 		m_head = &m_buffer[0];
 		m_inputOffset	= m_head + sizeof(Header);
 		m_outputOffset	= m_head + sizeof(Header);
+		m_currentSize += sizeof(Header);
 
 		//memcpy()
 	}
 	Serializer(char* buffer)
 	{
+		m_isOwn = false;
 		m_head = buffer;
 		m_inputOffset	= buffer + sizeof(Header);
 		m_outputOffset	= buffer + sizeof(Header);
@@ -39,13 +41,22 @@ public:
 
 	~Serializer()
 	{
-		std::cout << "~Serializer" << std::endl;
-		free(m_head);
+		if (m_isOwn)
+		{
+			free(m_head);
+		}
 	}
 
 	void SetHeader(const PacketType& type)
 	{
+		Header header(m_currentSize, type);
 
+		memcpy(m_head, &header, sizeof(Header));
+	}
+
+	void GetHeader(Header& header)
+	{
+		memcpy(&header, m_head, sizeof(Header));
 	}
 
 	size_t GetSize() const
@@ -127,17 +138,6 @@ public:
 
 		m_inputOffset += sizeof(T);
 		m_currentSize += sizeof(T);
-	}
-
-	template<>
-	void operator<<(const Header& header)
-	{
-		CheckOverflow(sizeof(Header));
-
-		memcpy(m_head, &header, sizeof(Header));
-
-		//m_inputOffset += sizeof(Header);
-		m_currentSize += sizeof(Header);
 	}
 
 	template<>
@@ -231,15 +231,7 @@ public:
 		m_outputOffset += sizeof(T);
 	}
 
-	template<>
-	void operator>>(Header& header)
-	{
-		memcpy(&header, m_head, sizeof(Header));
-
-		/*memcpy(&header.m_size, m_head, sizeof(Header::m_size));
-		memcpy(&header.m_type, m_head + sizeof(Header::m_size), sizeof(Header::m_type));*/
-	}
-
+	//string 대신 const char* 사용 검토 필요
 	template<>
 	void operator>>(std::string& data)
 	{
@@ -296,11 +288,9 @@ public:
 		}
 	}
 
-
-
-	
-
 private:
+	bool m_isOwn = true;
+
 	char* m_inputOffset;
 	char* m_outputOffset;
 	char* m_head;

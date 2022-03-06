@@ -2,7 +2,12 @@
 #include "stdafx.h"
 #include "Socket.h"
 
+
 auto WriteUserInfo = [](std::string& username, std::string& password) {
+
+	username.clear();
+	password.clear();
+
 	while (true)
 	{
 		printf("Username : ");
@@ -29,16 +34,16 @@ auto WriteUserInfo = [](std::string& username, std::string& password) {
 
 namespace C2S
 {
-	auto Login_Request = [](const Socket* const sockPtr, const std::string username, const std::string password) {
+	auto Login_Request = [](const Socket& sockRef, Serializer& serializerRef) {
 
 		unsigned short packetSize = sizeof(Packet_Login_Request);
 
 		Packet_Login_Request packet;
 
-		strcpy(packet.username, username.c_str());
-		strcpy(packet.password, password.c_str());
+		//strcpy(packet.username, username.c_str());
+		//strcpy(packet.password, password.c_str());
 
-		sockPtr->OverlapWSAsend(&packet);
+		//sockPtr->OverlapWSAsend(&packet);
 	};
 
 	auto Create_Account_Request = [](const Socket* const sockPtr, const std::string username, const std::string password) {
@@ -61,48 +66,51 @@ namespace C2S
 
 		WriteUserInfo(username, password);
 		
-		//C2S::Login_Request(sockPtr, username, password);
+		Serializer serializer;
 
-		Serializer se;
-
-		std::string message("asdfsdfsdfsdfsfdsfdsfdssdf");
-
-		se << username;
-		se << password;
-		se << message;
-		Header header(se.GetSize(), PacketType::LOGIN_REQUEST);
-		se << header;
-
-		sockPtr->OverlapWSAsend(se);
+		serializer << username;
+		serializer << password;
+		
+		serializer.SetHeader(PacketType::LOGIN_REQUEST);
+		sockPtr->OverlapWSAsend(serializer);
 	};
 }
 
 namespace S2C
 {
-	auto Login_Reply = [](const Socket* const sockPtr) {
+	auto Login_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
-		Packet_Login_Reply* packet = reinterpret_cast<Packet_Login_Reply*>(sockPtr->m_overlappedStruct.m_buffer);
+		//Packet_Login_Reply* packet = reinterpret_cast<Packet_Login_Reply*>(sockPtr->m_overlappedStruct.m_buffer);
 
-		if (static_cast<bool>(packet->success) == true && packet->error == LOGIN_ERROR_NO_ERROR)
+		unsigned short id;
+		bool success;
+		bool error;
+
+		serializerRef >> id;
+		serializerRef >> success;
+		serializerRef >> error;
+
+		if (success == true && error == LOGIN_ERROR_NO_ERROR)
 		{
-			sockPtr->m_id = packet->id;
+			sockRef.m_id = id;
 			printf("Login Success\n");
-
-			//loginCV.notify_one();
 		}
 		else
 		{
-			if (static_cast<bool>(packet->success) == false && packet->error == LOGIN_ERROR_WRONG_USERNAME)
+			if (success == false && error == LOGIN_ERROR_WRONG_USERNAME)
 			{
 				printf("Wrong Username\n\n");
 			}
-			else if (static_cast<bool>(packet->success) == false && packet->error == LOGIN_ERROR_WRONG_PASSWORD)
+			else if (success == false && error == LOGIN_ERROR_WRONG_PASSWORD)
 			{
 				printf("Wrong Password\n\n");
 			}
 
 			printf("Want to create new account?\n");
 			printf("Yes : y, No : n\n\n");
+
+			std::string username;
+			std::string password;
 
 			while (true)
 			{
@@ -115,12 +123,9 @@ namespace S2C
 
 					if (answer == 'Y' || answer == 'y')
 					{
-						std::string username;
-						std::string password;
-
 						WriteUserInfo(username, password);
 
-						C2S::Create_Account_Request(sockPtr, username, password);
+						//C2S::Create_Account_Request(sockPtr, username, password);
 
 					}
 					else if (answer == 'n' || answer == 'N')
@@ -128,12 +133,9 @@ namespace S2C
 						printf("Write Your ID & Password\n");
 						printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
 
-						std::string username;
-						std::string password;
-
 						WriteUserInfo(username, password);
 
-						C2S::Login_Request(sockPtr, username, password);
+						//C2S::Login_Request(sockPtr, username, password);
 					}
 					else
 					{
@@ -147,11 +149,12 @@ namespace S2C
 		}
 	};
 
-	auto Create_Account_Reply = [](const Socket* const sockPtr) {
+	auto Create_Account_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
-		Packet_Create_Account_Reply* packet = reinterpret_cast<Packet_Create_Account_Reply*>(sockPtr->m_overlappedStruct.m_buffer);
+		bool success;
+		serializerRef >> success;
 
-		if (packet->success == true)
+		if (success == true)
 		{
 			printf("Account creation success\n\n");
 		}
@@ -160,7 +163,7 @@ namespace S2C
 			printf("Account creation fail\n\n");
 		}
 
-		C2S::ProcessLogin(sockPtr);
+		//C2S::ProcessLogin(sockPtr);
 	};
 
 	auto Chat_Print = [](const Socket* const sockPtr) {
@@ -173,3 +176,30 @@ namespace S2C
 }
 
 
+auto PacketProcess = [](const Socket& sockRef) {
+
+	Serializer serializer(sockRef.m_overlappedStruct.m_buffer);
+
+	Header header;
+
+	serializer.GetHeader(header);
+
+	switch (header.m_type)
+	{
+	case PacketType::LOGIN_REPLY:
+		S2C::Login_Reply(sockRef, serializer);
+		break;
+
+	case PacketType::CRERATE_ACCOUNT_REPLY:
+		//S2C::Create_Account_Reply(sockRef, serializer);
+		break;
+
+	case PacketType::CHAT:
+
+	default:
+		std::cout << "PacketProcess Error : No such type" << std::endl;
+		break;
+	}
+
+
+};

@@ -78,7 +78,6 @@ public:
 };
 
 
-
 #pragma warning(disable : 4200)
 struct Packet_Chat
 {

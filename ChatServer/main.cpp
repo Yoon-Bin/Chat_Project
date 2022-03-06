@@ -5,11 +5,10 @@
 #include "Serializer.h"
 #include <chrono>
 #include <array>
+#include <time.h>
 
 #define SIZE 0
 #define TYPE 1
-
-static std::map<PacketType, void(*)(const Socket* const)> callbackmap;
 
 int main()
 {
@@ -24,12 +23,6 @@ int main()
 #endif
 
 		printf("%s\n\n", mysql_get_client_info());
-		callbackmap.insert({ PacketType::CHAT, S2C::Chat_Reply });
-		callbackmap.insert({ PacketType::LOGIN_REQUEST, S2C::Login_Reply });
-		callbackmap.insert({ PacketType::CRERATE_ACCOUNT_REQUEST, S2C::Create_Account_Reply });
-
-		bool setTrue	= true;
-		bool setFalse	= false;
 
 		EndPoint endPoint("192.168.55.52", 4444);
 		Socket listenSock(SockType::TCP);
@@ -42,7 +35,7 @@ int main()
 
 		listenSock.Bind(endPoint);
 
-		listenSock.SetSockOpt(SOL_SOCKET, SO_CONDITIONAL_ACCEPT, setTrue);
+		listenSock.SetSockOpt(SOL_SOCKET, SO_CONDITIONAL_ACCEPT, true);
 		//listenSock.SetSockOpt(SOL_SOCKET, SO_REUSEADDR, setTrue);
 
 		listenSock.GetSockOpt(SOL_SOCKET, SO_CONDITIONAL_ACCEPT);
@@ -60,7 +53,7 @@ int main()
 
 			iocp.Add(iterator.get());
 
-			listenSock.OverlapAcceptEx(iterator.get());
+			listenSock.OverlapAcceptEx(*iterator);
 		}
 
 		std::cout << sockPool.GetFullSockCount() << " Sockets OverlapAccepted" << std::endl;
@@ -80,7 +73,7 @@ int main()
 					{
 						auto& iocpEvent = iocpEvents.m_events[i];
 
-						IOType ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
+						IOType& ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
 
 						/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
 						{
@@ -93,48 +86,36 @@ int main()
 						{
 							unsigned short sockID = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_id;
 
-							Socket* sockPtr = sockPool.m_fullSockPtrVector[sockID].get();
+							Socket& sockRef = *sockPool.m_fullSockPtrVector[sockID];
 
-							sockPtr->UpdateAcceptContext(listenSock);
+							sockRef.UpdateAcceptContext(listenSock);
 
-							sockPtr->OverlapWSArecv();
+							sockRef.OverlapWSArecv();
 
-							sockPtr->m_isOverlapped = true;
+							sockRef.m_isOverlapped = true;
 
-							printf("%d\n", (int)sockPtr->m_handle);
+							printf("%d\n", (int)sockRef.m_handle);
 
 							break;
 						}
 						case IOType::READ:
 						{
-							Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
+							Socket& sockRef = *(Socket*)iocpEvent.lpCompletionKey;
 
 							if (iocpEvent.dwNumberOfBytesTransferred > 0)
 							{
-								sockPtr->m_isOverlapped = false;
-								
-								Serializer se(sockPtr->m_overlappedStruct.m_buffer);
+								sockRef.m_isOverlapped = false;
 
-								//패킷 재조립 필요
-								//PacketType packetType = static_cast<PacketType>(sockPtr->m_overlappedStruct.m_buffer[TYPE]);
-								Header header;
-								se >> header;
+								//패킷 재조립 기능 필요
+								PacketProcess(sockRef);
 
-								std::string username;
-								std::string password;
-								
-								se >> username;
-								se >> password;
+								sockRef.OverlapWSArecv();
 
-								callbackmap[header.m_type](sockPtr);
-
-								sockPtr->OverlapWSArecv();
-
-								sockPtr->m_isOverlapped = true;
+								sockRef.m_isOverlapped = true;
 							}
 							else
 							{
-								sockPtr->OverlapDisconnectEx();
+								sockRef.OverlapDisconnectEx();
 							}
 
 							break;
@@ -147,13 +128,15 @@ int main()
 						}
 						case IOType::DISCONNECT:
 						{
-							Socket* sockPtr = (Socket*)iocpEvent.lpCompletionKey;
 
-							RtlZeroMemory(&sockPtr->m_overlappedStruct.m_wsaOverlapped, sizeof(sockPtr->m_overlappedStruct.m_wsaOverlapped));
+							//참조로 변경 필요
+							Socket& sockRef = *(Socket*)iocpEvent.lpCompletionKey;
 
-							listenSock.OverlapAcceptEx(sockPtr);
+							RtlZeroMemory(&sockRef.m_overlappedStruct.m_wsaOverlapped, sizeof(sockRef.m_overlappedStruct.m_wsaOverlapped));
 
-							printf("%d Disconnected\n", (int)sockPtr->m_handle);
+							listenSock.OverlapAcceptEx(sockRef);
+
+							printf("%d Disconnected\n", (int)sockRef.m_handle);
 						}
 						}
 					}
