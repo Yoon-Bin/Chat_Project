@@ -24,8 +24,6 @@ public:
 		m_inputOffset	= m_head + sizeof(Header);
 		m_outputOffset	= m_head + sizeof(Header);
 		m_currentSize += sizeof(Header);
-
-		//memcpy()
 	}
 	Serializer(char* buffer)
 	{
@@ -111,23 +109,24 @@ public:
 		}
 	}
 
-	//Primitive, Enum only
-	/*template<class T>
-	void WriteData(T& data)
-	{
-		static_assert(
-			std::is_arithmetic<T>::value || std::is_enum<T>::value,
-			"Only support primitive or enum data types"
-			);
-
-		memcpy(m_inputOffset, &data, sizeof(data));
-		
-		m_inputOffset += sizeof(data);
-		m_currentSize += sizeof(data);
-	}*/
-
-
 	/////// WRITE OPERATOR ///////
+
+	void operator<<(const char* data)
+	{
+		unsigned short length = static_cast<unsigned short>(strlen(data));
+
+		CheckOverflow(sizeof(length) + length);
+
+		memcpy(m_inputOffset, &length, sizeof(length));
+
+		m_inputOffset += sizeof(length);
+		m_currentSize += sizeof(length);
+
+		strncpy(m_inputOffset, data, length);
+
+		m_inputOffset += length;
+		m_currentSize += length;
+	}
 
 	template<class T>
 	void operator<<(const T& data)
@@ -140,31 +139,13 @@ public:
 		m_currentSize += sizeof(T);
 	}
 
-	template<>
-	void operator<<(const std::string& data)
-	{
-		unsigned short length = static_cast<unsigned short>(data.length());
-
-		CheckOverflow(sizeof(length) + data.size());
-
-		memcpy(m_inputOffset, &length, sizeof(length));
-
-		m_inputOffset += sizeof(length);
-		m_currentSize += sizeof(length);
-
-		strncpy(m_inputOffset, data.c_str(), data.size());
-
-		m_inputOffset += length;
-		m_currentSize += length;
-	}
-
 	template<class T>
 	void operator<<(const std::vector<T>& data)
 	{
-		static_assert(
+		/*static_assert(
 			std::is_arithmetic<T>::value || std::is_enum<T>::value,
 			"Only support primitive or enum data types"
-			);
+			);*/
 
 		unsigned char elementCount = static_cast<unsigned char>(data.size());
 
@@ -221,17 +202,16 @@ public:
 	template<class T>
 	void operator>>(T& data)
 	{
-		static_assert(
+		/*static_assert(
 			std::is_arithmetic<T>::value || std::is_enum<T>::value,
 			"Only support primitive or enum data types"
-			);
+			);*/
 
 		memcpy(&data, m_outputOffset, sizeof(T));
 
 		m_outputOffset += sizeof(T);
 	}
 
-	//string 대신 const char* 사용 검토 필요
 	template<>
 	void operator>>(std::string& data)
 	{
