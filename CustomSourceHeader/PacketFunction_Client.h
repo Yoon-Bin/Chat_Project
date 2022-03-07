@@ -2,6 +2,24 @@
 #include "stdafx.h"
 #include "Socket.h"
 
+static bool chat;
+
+auto CutBlankBehind = [](std::string& text) {
+
+	for (std::string::reverse_iterator it = text.rbegin(); it != text.rend(); it++)
+	{
+		if (*it == ' ')
+		{
+			text.erase(it.base());
+		}
+		else
+		{
+			text.erase(it.base());
+			break;
+		}
+	}
+};
+
 
 auto WriteUserInfo = [](std::string& username, std::string& password) {
 
@@ -25,6 +43,9 @@ auto WriteUserInfo = [](std::string& username, std::string& password) {
 			printf("Too Long, Write Again\n\n");
 			continue;
 		}
+
+		CutBlankBehind(username);
+		CutBlankBehind(password);
 
 		break;
 	}
@@ -65,11 +86,11 @@ namespace C2S
 		std::string password;
 
 		WriteUserInfo(username, password);
-		
+
 		Serializer serializer;
 
-		serializer << username;
-		serializer << password;
+		serializer << username.c_str();
+		serializer << password.c_str();
 		
 		serializer.SetHeader(PacketType::LOGIN_REQUEST);
 		sockPtr->OverlapWSAsend(serializer);
