@@ -2,7 +2,7 @@
 
 #include "SocketUtil.h"
 
-#define MAXBUFFERSIZE 32
+#define MAXBUFFERSIZE 100
 
 enum class SockType
 {
@@ -57,10 +57,12 @@ public:
 	bool m_isOverlapped = false;
 
 	mutable unsigned short		m_id;
+	mutable unsigned short		m_roomID;
 	mutable DWORD				m_flag = 0;
 	mutable OverlappedStruct	m_overlappedStruct;
 
 	SOCKET m_handle;
+
 
 	EndPoint ePoint; 
 	

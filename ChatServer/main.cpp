@@ -43,10 +43,8 @@ int main()
 		listenSock.Bind(endPoint);
 
 		listenSock.SetSockOpt(SOL_SOCKET, SO_CONDITIONAL_ACCEPT, true);
-		//listenSock.SetSockOpt(SOL_SOCKET, SO_REUSEADDR, setTrue);
 
 		listenSock.GetSockOpt(SOL_SOCKET, SO_CONDITIONAL_ACCEPT);
-		//listenSock.GetSockOpt(SOL_SOCKET, SO_REUSEADDR);
 
 		listenSock.Listen(1000);
 
@@ -54,10 +52,6 @@ int main()
 
 		for (auto& iterator : sockPool.m_fullSockPtrVector)
 		{
-			//왜 REUSEADDR를 안 써도 재사용이 되지?
-			//iterator->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, setTrue);
-			//iterator->GetSockOpt(SOL_SOCKET, SO_REUSEADDR);
-
 			iocp.Add(iterator.get());
 
 			listenSock.OverlapAcceptEx(*iterator);
@@ -81,11 +75,6 @@ int main()
 						auto& iocpEvent = iocpEvents.m_events[i];
 
 						IOType& ioType = ((OverlappedStruct*)iocpEvent.lpOverlapped)->m_ioType;
-
-						/*if (iocpEvent.dwNumberOfBytesTransferred <= 0)
-						{
-							printf("0 byte\n");
-						}*/
 
 						switch (ioType)
 						{
@@ -113,7 +102,6 @@ int main()
 							{
 								sockRef.m_isOverlapped = false;
 
-								//패킷 재조립 기능 필요
 								PacketProcess(sockRef);
 
 								sockRef.OverlapWSArecv();
@@ -135,8 +123,6 @@ int main()
 						}
 						case IOType::DISCONNECT:
 						{
-
-							//참조로 변경 필요
 							Socket& sockRef = *(Socket*)iocpEvent.lpCompletionKey;
 
 							RtlZeroMemory(&sockRef.m_overlappedStruct.m_wsaOverlapped, sizeof(sockRef.m_overlappedStruct.m_wsaOverlapped));

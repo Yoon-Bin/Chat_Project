@@ -2,6 +2,8 @@
 #include "stdafx.h"
 #include "Socket.h"
 
+#include <future>
+
 static bool chat;
 
 auto CutBlankBehind = [](std::string& text) {
@@ -51,33 +53,66 @@ auto WriteUserInfo = [](std::string& username, std::string& password) {
 	}
 };
 
+auto ProcessLogin = [](const Socket& sockRef) {
+
+	printf("Write Your ID & Password\n");
+	printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
+
+	std::string username;
+	std::string password;
+
+	WriteUserInfo(username, password);
+
+	Serializer serializer;
+
+	serializer << username.c_str();
+	serializer << password.c_str();
+
+	serializer.SetHeader(PacketType::LOGIN_REQUEST);
+	sockRef.OverlapWSAsend(serializer);
+};
+
+auto ProcessChat = [](const Socket& sockRef) {
+
+	std::shared_ptr<std::thread> chatThread(new std::thread([&sockRef]() {
+
+		Serializer se;
+
+		std::string message;
+
+		while (true)
+		{
+			std::getline(std::cin, message);
+			if (std::strcmp(message.c_str(), "esc") == 0)
+			{
+				se.SetHeader(PacketType::ROOM_EXIT_REQUEST);
+				sockRef.OverlapWSAsend(se);
+
+				break;
+			}
+
+			se << message.c_str();
+			se.SetHeader(PacketType::CHAT);
+
+			sockRef.OverlapWSAsend(se);
+
+			se.Init();
+			message.clear();
+		}
+		}));
+
+	chatThread->detach();
+
+};
+
+
+
+
 
 
 namespace C2S
 {
-	auto Login_Request = [](const Socket& sockRef, Serializer& serializerRef) {
-
-		unsigned short packetSize = sizeof(Packet_Login_Request);
-
-		Packet_Login_Request packet;
-
-		//strcpy(packet.username, username.c_str());
-		//strcpy(packet.password, password.c_str());
-
-		//sockPtr->OverlapWSAsend(&packet);
-	};
-
-	auto Create_Account_Request = [](const Socket* const sockPtr, const std::string username, const std::string password) {
-		
-		Packet_Create_Account_Request packet;
-
-		strcpy(packet.username, username.c_str());
-		strcpy(packet.password, password.c_str());
-
-		sockPtr->OverlapWSAsend(&packet);
-	};
-
-	auto ProcessLogin = [](const Socket* const sockPtr) {
+	auto Login_Request = [](const Socket& sockRef) {
 
 		printf("Write Your ID & Password\n");
 		printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
@@ -85,22 +120,28 @@ namespace C2S
 		std::string username;
 		std::string password;
 
+		Serializer se;
+
 		WriteUserInfo(username, password);
 
-		Serializer serializer;
+		se << username.c_str();
+		se << password.c_str();
+		se.SetHeader(PacketType::LOGIN_REQUEST);
+		sockRef.OverlapWSAsend(se);
+	};
 
-		serializer << username.c_str();
-		serializer << password.c_str();
+	auto Create_Account_Request = [](const Socket& sockRef) {
 		
-		serializer.SetHeader(PacketType::LOGIN_REQUEST);
-		sockPtr->OverlapWSAsend(serializer);
-	//Room Create, Exit Request
-	auto Room_Simple_Request = [](const Socket& sockRef, const PacketType& type) {
+		std::string username;
+		std::string password;
 
 		Serializer se;
 
-		se.SetHeader(type);
+		WriteUserInfo(username, password);
 
+		se << username.c_str();
+		se << password.c_str();
+		se.SetHeader(PacketType::CREATE_ACCOUNT_REQUEST);
 		sockRef.OverlapWSAsend(se);
 	};
 
@@ -191,15 +232,16 @@ namespace C2S
 	};
 }
 
+
+
+
 namespace S2C
 {
 	auto Login_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
-		//Packet_Login_Reply* packet = reinterpret_cast<Packet_Login_Reply*>(sockPtr->m_overlappedStruct.m_buffer);
-
 		unsigned short id;
 		bool success;
-		bool error;
+		unsigned char error;
 
 		serializerRef >> id;
 		serializerRef >> success;
@@ -209,6 +251,8 @@ namespace S2C
 		{
 			sockRef.m_id = id;
 			printf("Login Success\n");
+
+			C2S::ProcessRoom(sockRef);
 		}
 		else
 		{
@@ -227,6 +271,8 @@ namespace S2C
 			std::string username;
 			std::string password;
 
+			Serializer se;
+
 			while (true)
 			{
 					char answer;
@@ -238,19 +284,11 @@ namespace S2C
 
 					if (answer == 'Y' || answer == 'y')
 					{
-						WriteUserInfo(username, password);
-
-						//C2S::Create_Account_Request(sockPtr, username, password);
-
+						C2S::Create_Account_Request(sockRef);
 					}
 					else if (answer == 'n' || answer == 'N')
 					{
-						printf("Write Your ID & Password\n");
-						printf("Max ID, Password Length is %d\n\n", MAX_USERNAME_SIZE);
-
-						WriteUserInfo(username, password);
-
-						//C2S::Login_Request(sockPtr, username, password);
+						C2S::Login_Request(sockRef);
 					}
 					else
 					{
@@ -278,29 +316,21 @@ namespace S2C
 			printf("Account creation fail\n\n");
 		}
 
-		//C2S::ProcessLogin(sockPtr);
-	auto Room_Create_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
-
-		bool result;
-		unsigned short roomID;
-
-		serializerRef >> result;
-		serializerRef >> roomID;
-
-		sockRef.m_roomID = roomID;
-
-		if (result)
-		{
-			std::cout << roomID << std::endl;
-			std::cout << "Chat" << std::endl;
-		}
-		else
-		{
-			std::cout << "Fail" << std::endl;
-		}
+		ProcessLogin(sockRef);
 	};
 
-	auto Chat_Print = [](const Socket* const sockPtr) {
+	auto Chat_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
+
+		unsigned short userID;
+		std::string message;
+
+		serializerRef >> userID;
+		serializerRef >> message;
+
+		printf("User %d : %s\n", userID, message.c_str());
+
+	};
+
 	auto Room_Enter_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
 		bool result;
@@ -320,7 +350,6 @@ namespace S2C
 		}
 	};
 
-		Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
 	auto Room_Exit_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
 		bool result;
@@ -370,14 +399,12 @@ auto PacketProcess = [](const Socket& sockRef) {
 		S2C::Login_Reply(sockRef, serializer);
 		break;
 
-	case PacketType::CRERATE_ACCOUNT_REPLY:
-		//S2C::Create_Account_Reply(sockRef, serializer);
+	case PacketType::CREATE_ACCOUNT_REPLY:
+		S2C::Create_Account_Reply(sockRef, serializer);
 		break;
 
 	case PacketType::CHAT:
-
-	case PacketType::ROOM_CREATE_REPLY:
-		S2C::Room_Create_Reply(sockRef, serializer);
+		S2C::Chat_Reply(sockRef, serializer);
 		break;
 
 	case PacketType::ROOM_ENTER_REPLY:
@@ -392,9 +419,10 @@ auto PacketProcess = [](const Socket& sockRef) {
 		S2C::Room_Info_Reply(sockRef, serializer);
 		break;
 	default:
-		std::cout << "PacketProcess Error : No such type" << std::endl;
+		printf("PacketProcess Error : No such type\n");
 		break;
 	}
 
 
 };
+

@@ -3,16 +3,19 @@
 #include "Socket.h"
 #include "Room.h"
 
+#include "boost/lockfree/queue.hpp"
+
 #define MAXROOMCOUNT 20
 
 static std::unordered_map<unsigned short, std::shared_ptr<Room>> roomList;
 static boost::lockfree::queue<unsigned short> deactivatedRoomList(MAXROOMCOUNT);
+
 auto ExecuteQuery = [](const char* queryString, MYSQL_ROW& row)->bool {
 
 	MYSQL conn;
 	MYSQL* connPtr = nullptr;
 	MYSQL_RES* result;
-	int stat;
+	int stat;	
 
 	mysql_init(&conn);
 
@@ -55,10 +58,25 @@ namespace S2C
 {
 	auto Chat_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
 
+		std::string message;
+		unsigned short userID = sockRef.m_id;
 
-		//Packet_Chat* packet = reinterpret_cast<Packet_Chat*>(sockPtr->m_overlappedStruct.m_buffer);
+		serializerRef >> message;
 
-		//sockPtr->OverlapWSAsend(packet);
+		Serializer se;
+
+		se << userID;
+		se << message.c_str();
+
+		se.SetHeader(PacketType::CHAT);
+		for (auto& user : roomList[sockRef.m_roomID]->m_users)
+		{
+			if (user->m_id != sockRef.m_id)
+			{
+				user->OverlapWSAsend(se);
+			}
+			user->OverlapWSAsend(se);
+		};
 	};
 
 	auto Create_Account_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
@@ -72,7 +90,6 @@ namespace S2C
 		std::string queryString;
 		MYSQL_ROW row;
 
-		//파라미터 팩 사용으로 querymaker 구현
 		queryString.append("insert into user(username,password) values('");
 		queryString.append(username);
 		queryString.append("', '");
@@ -92,7 +109,7 @@ namespace S2C
 			serializer << false;
 		}
 
-		serializer.SetHeader(PacketType::CRERATE_ACCOUNT_REPLY);
+		serializer.SetHeader(PacketType::CREATE_ACCOUNT_REPLY);
 		sockRef.OverlapWSAsend(serializer);
 	};
 
@@ -230,11 +247,14 @@ auto PacketProcess = [](const Socket& sockRef) {
 		S2C::Login_Reply(sockRef, serializer);
 		break;
 
-	case PacketType::CRERATE_ACCOUNT_REQUEST:
+	case PacketType::CREATE_ACCOUNT_REQUEST:
 		S2C::Create_Account_Reply(sockRef, serializer);
 		break;
 
 	case PacketType::CHAT:
+		S2C::Chat_Reply(sockRef, serializer);
+		break;
+
 	case PacketType::ROOM_ENTER_REQUEST:
 		S2C::Room_Enter_Reply(sockRef, serializer);
 		break;

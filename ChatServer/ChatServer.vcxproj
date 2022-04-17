@@ -27,33 +27,30 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\CustomSourceHeader\Bitset.cpp" />
     <ClCompile Include="..\CustomSourceHeader\EndPoint.cpp" />
     <ClCompile Include="..\CustomSourceHeader\Exception.cpp" />
     <ClCompile Include="..\CustomSourceHeader\Iocp.cpp" />
-    <ClCompile Include="..\CustomSourceHeader\Pool.cpp" />
     <ClCompile Include="..\CustomSourceHeader\Serializer.cpp" />
     <ClCompile Include="..\CustomSourceHeader\Socket.cpp" />
     <ClCompile Include="..\CustomSourceHeader\SocketPool.cpp" />
     <ClCompile Include="..\CustomSourceHeader\SocketUtil.cpp" />
     <ClCompile Include="..\CustomSourceHeader\stdafx.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Room.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\CustomSourceHeader\Bitset.h" />
     <ClInclude Include="..\CustomSourceHeader\CustomHeader.h" />
     <ClInclude Include="..\CustomSourceHeader\EndPoint.h" />
     <ClInclude Include="..\CustomSourceHeader\Exception.h" />
     <ClInclude Include="..\CustomSourceHeader\Iocp.h" />
     <ClInclude Include="..\CustomSourceHeader\Packet.h" />
     <ClInclude Include="..\CustomSourceHeader\PacketFunction_Server.h" />
-    <ClInclude Include="..\CustomSourceHeader\Pool.h" />
     <ClInclude Include="..\CustomSourceHeader\Serializer.h" />
     <ClInclude Include="..\CustomSourceHeader\Socket.h" />
     <ClInclude Include="..\CustomSourceHeader\SocketPool.h" />
     <ClInclude Include="..\CustomSourceHeader\SocketUtil.h" />
     <ClInclude Include="..\CustomSourceHeader\stdafx.h" />
-    <ClInclude Include="resource.h" />
+    <ClInclude Include="Room.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

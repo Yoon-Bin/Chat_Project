@@ -13,7 +13,6 @@ Socket::Socket(const SockType& socketType)
 	}
 
 	RtlZeroMemory(&m_overlappedStruct.m_wsaOverlapped, sizeof(m_overlappedStruct.m_wsaOverlapped));
-	//RtlZeroMemory(&m_receiveBuffer, sizeof(m_receiveBuffer));
 }
 
 Socket::~Socket()
@@ -141,8 +140,6 @@ void Socket::UpdateAcceptContext(const Socket& listenSockPtr) const
 
 	char address[128] = { 0, };
 
-	//RtlZeroMemory(&ignore, sizeof(ignore));
-
 	GetAcceptExSockaddrs(
 		&ignore,
 		NULL,
@@ -153,15 +150,6 @@ void Socket::UpdateAcceptContext(const Socket& listenSockPtr) const
 		(sockaddr**)&ignore3,
 		&ignore4
 	);
-
-	/*char strArr[20];
-	inet_ntop(AF_INET,&(ignore1->sin_addr),strArr,20);
-
-	printf("%s\n", strArr);*/
-
-	/*inet_ntop(AF_INET, &ignore3->sin_addr.S_un.S_addr, address, sizeof(address));
-
-	printf("%s\n", &address);*/
 
 	int result = setsockopt(
 		m_handle,

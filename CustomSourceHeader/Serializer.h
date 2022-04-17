@@ -20,6 +20,7 @@ public:
 	Serializer()
 	{
 		char* m_buffer = (char*)malloc(sizeof(char) * BASEBUFFERSIZE);
+		RtlZeroMemory(m_buffer, sizeof(char) * BASEBUFFERSIZE);
 		m_head = &m_buffer[0];
 		m_inputOffset	= m_head + sizeof(Header);
 		m_outputOffset	= m_head + sizeof(Header);
@@ -43,6 +44,14 @@ public:
 		{
 			free(m_head);
 		}
+	}
+
+	void Init()
+	{
+		RtlZeroMemory(m_head, sizeof(char) * BASEBUFFERSIZE);
+		m_inputOffset = m_head + sizeof(Header);
+		m_outputOffset = m_head + sizeof(Header);
+		m_currentSize = sizeof(Header);
 	}
 
 	void SetHeader(const PacketType& type)
@@ -102,11 +111,6 @@ public:
 		
 			m_head = m_tempBuffer;
 		}
-		else
-		{
-			//무한루프 걸릴라나?
-			Realloc(dataSize);
-		}
 	}
 
 	/////// WRITE OPERATOR ///////
@@ -128,7 +132,7 @@ public:
 		m_currentSize += length;
 	}
 
-	template<class T>
+	template<typename T>
 	void operator<<(const T& data)
 	{
 		CheckOverflow(sizeof(T));
@@ -139,14 +143,9 @@ public:
 		m_currentSize += sizeof(T);
 	}
 
-	template<class T>
+	template<typename T>
 	void operator<<(const std::vector<T>& data)
 	{
-		/*static_assert(
-			std::is_arithmetic<T>::value || std::is_enum<T>::value,
-			"Only support primitive or enum data types"
-			);*/
-
 		unsigned char elementCount = static_cast<unsigned char>(data.size());
 
 		CheckOverflow(sizeof(elementCount) + (elementCount * sizeof(T)));
@@ -164,7 +163,7 @@ public:
 		m_currentSize += elementCount * sizeof(T);
 	}
 
-	template<class T1, class T2>
+	template<typename T1, typename T2>
 	void operator<<(const std::unordered_map<T1, T2> data)
 	{
 		static_assert(
@@ -197,16 +196,13 @@ public:
 
 
 
+
+
 	/////// READ OPERATOR ///////
 
-	template<class T>
+	template<typename T>
 	void operator>>(T& data)
 	{
-		/*static_assert(
-			std::is_arithmetic<T>::value || std::is_enum<T>::value,
-			"Only support primitive or enum data types"
-			);*/
-
 		memcpy(&data, m_outputOffset, sizeof(T));
 
 		m_outputOffset += sizeof(T);
@@ -228,7 +224,7 @@ public:
 		m_outputOffset += length;
 	}
 
-	template<class T>
+	template<typename T>
 	void operator>>(std::vector<T>& data)
 	{
 		unsigned char elementCount;
@@ -246,7 +242,7 @@ public:
 		}
 	}
 
-	template<class T1, class T2>
+	template<typename T1, typename T2>
 	void operator>>(std::unordered_map<T1, T2>& data)
 	{
 		unsigned short elementCount;
