@@ -1,7 +1,12 @@
 #pragma once
 #include "stdafx.h"
 #include "Socket.h"
+#include "Room.h"
 
+#define MAXROOMCOUNT 20
+
+static std::unordered_map<unsigned short, std::shared_ptr<Room>> roomList;
+static boost::lockfree::queue<unsigned short> deactivatedRoomList(MAXROOMCOUNT);
 auto ExecuteQuery = [](const char* queryString, MYSQL_ROW& row)->bool {
 
 	MYSQL conn;
@@ -148,6 +153,67 @@ namespace S2C
 		serializer.SetHeader(PacketType::LOGIN_REPLY);
 		sockRef.OverlapWSAsend(serializer);
 	};
+
+	auto Room_Enter_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
+
+		unsigned short roomID;
+
+		
+		serializerRef >> roomID;
+
+		Serializer se;
+
+		if (roomList.find(roomID)->second->Enter(sockRef))
+		{
+			se << true;
+		}
+		else
+		{
+			se << false;
+		}
+
+		se.SetHeader(PacketType::ROOM_ENTER_REPLY);
+		sockRef.OverlapWSAsend(se);
+	};
+
+	auto Room_Exit_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
+
+		Serializer se;
+
+		if (roomList[sockRef.m_roomID]->Exit(sockRef))
+		{
+			se << true;
+		}
+		else
+		{
+			se << false;
+		}
+
+		se.SetHeader(PacketType::ROOM_EXIT_REPLY);
+		sockRef.OverlapWSAsend(se);
+	};
+
+	auto Room_Info_Reply = [](const Socket& sockRef, Serializer& serializerRef) {
+
+		unsigned short roomPage;
+
+		serializerRef >> roomPage;
+
+		Serializer se;
+
+		std::unordered_map<unsigned short, unsigned short> rooms;
+
+		for (int i = 10 * roomPage + 1; i <= 10 * (roomPage + 1); i++)
+		{
+			rooms.insert(std::make_pair(i, roomList[i]->m_userCount.load()));
+		}
+
+		se << rooms;
+
+		se.SetHeader(PacketType::ROOM_INFO_REPLY);
+		sockRef.OverlapWSAsend(se);
+			
+	};
 }
 
 auto PacketProcess = [](const Socket& sockRef) {
@@ -169,6 +235,17 @@ auto PacketProcess = [](const Socket& sockRef) {
 		break;
 
 	case PacketType::CHAT:
+	case PacketType::ROOM_ENTER_REQUEST:
+		S2C::Room_Enter_Reply(sockRef, serializer);
+		break;
+
+	case PacketType::ROOM_EXIT_REQUEST:
+		S2C::Room_Exit_Reply(sockRef, serializer);
+		break;
+
+	case PacketType::ROOM_INFO_REQUEST:
+		S2C::Room_Info_Reply(sockRef, serializer);
+		break;
 
 	default:
 		std::cout << "PacketProcess Error : No such type" << std::endl;

@@ -10,8 +10,15 @@
 #define SIZE 0
 #define TYPE 1
 
+
 int main()
 {
+	for (int i = 1; i <= MAXROOMCOUNT; i++)
+	{
+		roomList.insert(std::make_pair(i, std::make_shared<Room>(i)));
+		deactivatedRoomList.push(i);
+	}
+
 	try
 	{
 #ifdef _WIN32
